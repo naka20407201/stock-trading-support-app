@@ -106,24 +106,47 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -scheme StockTradingSupportApp -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath /tmp/StockTradingSupportAppDerivedData test
 ```
 
-## Step 4: ウォッチリスト画面
+## Step 4: ウォッチリスト基盤作成 完了
 
 目的:
 
 - ユーザーが監視対象の銘柄を一覧できるようにする
 
-作業候補:
+完了内容:
 
-- WatchlistItem モデル作成
-- ウォッチリスト一覧表示
-- 監視中フラグ表示
-- 銘柄詳細への遷移
-- 空状態の表示
+- 通常のSwift構造体として `WatchlistItem` を作成済み
+- `WatchlistItem` は id、銘柄コード、銘柄名、市場区分、業種、日経225標準候補フラグ、作成日時を保持
+- `WatchlistRepository` プロトコルを作成済み
+- `InMemoryWatchlistRepository` を作成済み
+- ウォッチリスト一覧取得、銘柄追加、銘柄削除、銘柄コードによる重複確認の操作を用意済み
+- WatchlistView でサンプル監視銘柄を一覧表示済み
+- 空状態を ContentUnavailableView で表示する構成を用意済み
+- 各行から StockDetailView へ遷移し、銘柄名、銘柄コード、市場区分、業種を表示済み
+- Repository と日経225モック銘柄マスタのテストを追加済み
+- 次の Step 5「銘柄追加画面」に進める状態
+
+注意:
+
+- このStepでは、日経225候補からの追加ボタン、任意銘柄追加フォーム、SwiftDataによる本格永続化は実装しない
+- InMemoryWatchlistRepository は開発用の一時的な保存境界として扱う
+- 外部API、リアルタイム株価取得、自動売買、証券口座連携、板情報取得は実装しない
 
 表示方針:
 
 - 「おすすめ」や「推奨」ではなく「ウォッチリスト」と表示する
 - 条件一致件数などを出す場合も、売買判断に見えない文言にする
+
+ビルド確認方法:
+
+```sh
+xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -scheme StockTradingSupportApp -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath /tmp/StockTradingSupportAppDerivedData build
+```
+
+テスト実行方法:
+
+```sh
+xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -scheme StockTradingSupportApp -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath /tmp/StockTradingSupportAppDerivedData test
+```
 
 ## Step 5: 銘柄追加画面
 
@@ -131,13 +154,14 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 
 - 日経225銘柄候補と任意銘柄をウォッチリストに追加できるようにする
 
-作業候補:
+次回実装予定:
 
-- 日経225銘柄検索
-- ウォッチリスト追加
+- 日経225候補からウォッチリストへ追加
 - 任意銘柄追加フォーム
 - 銘柄コードと銘柄名の入力チェック
 - 重複追加の抑制
+- 追加後のウォッチリスト一覧更新
+- 将来SwiftData永続化へ差し替えやすいRepository利用の維持
 
 ## Step 6: 銘柄詳細・投資メモ画面
 

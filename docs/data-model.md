@@ -66,11 +66,25 @@ WatchlistItem は、ユーザーが監視対象として選んだ銘柄を表し
 | createdAt | 作成日時 |
 | updatedAt | 更新日時 |
 
+Step 4 の初期実装では、SwiftData永続化モデルではなく通常のSwift構造体として `WatchlistItem` を作成します。初期構造体では、今後の画面確認とRepository境界作成を優先し、以下を保持します。
+
+| 項目 | 内容 |
+| --- | --- |
+| id | ローカルID |
+| code | 銘柄コード |
+| name | 銘柄名 |
+| market | 市場区分 |
+| industry | 業種 |
+| isNikkei225 | 日経225標準候補かどうか |
+| createdAt | 作成日時 |
+
 設計メモ:
 
 - 同じ StockMaster を、ユーザーがウォッチリストに追加した状態として扱う
 - 将来ユーザーアカウントを導入する場合は userId を追加する
 - 削除は物理削除から始めてもよいが、将来同期する場合は archivedAt や deletedAt を検討する
+- Step 4 では `WatchlistRepository` / `InMemoryWatchlistRepository` を用意し、SwiftDataや将来APIへ差し替えやすい保存境界を先に作る
+- InMemoryWatchlistRepository は開発用の一時実装であり、日経225候補からの追加UIや本格永続化は後続Stepで実装する
 
 ## InvestmentMemo
 
