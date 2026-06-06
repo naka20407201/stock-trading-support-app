@@ -71,11 +71,13 @@
 
 ### 条件判定
 
-1. 銘柄ごとの入力値またはモックデータを取得する
-2. 有効な AlertRule を取得する
-3. 条件判定ロジックに評価対象データと AlertRule を渡す
-4. 判定結果が条件一致の場合、AlertHistory を作成する
-5. 通知機能が有効な場合は通知候補として扱う
+1. ManualInputStockDataProvider または MockStockDataProvider 相当の境界から、銘柄ごとの手入力値またはモックデータを取得する
+2. 取得した値を StockSnapshot に変換する
+3. 有効な AlertRule を取得する
+4. AlertRule と StockSnapshot を AlertRuleEvaluator に渡す
+5. AlertRuleEvaluator は、条件一致、条件不一致、判定不能のいずれかを返す
+6. 判定結果が条件一致の場合、AlertHistory を作成する
+7. 通知機能が有効な場合は通知候補として扱う
 
 ## SwiftUIでの構成案
 
@@ -102,10 +104,53 @@ View は表示とユーザー操作の受け取りを担当します。条件判
 - View: 画面表示、入力、画面遷移
 - Model: SwiftDataで保存する永続化対象
 - Domain: アラート条件、指標、判定結果などのアプリ固有概念
-- Service: 条件判定、履歴作成、モックデータ供給
-- Repository相当: 将来バックエンドや外部APIに差し替える場合のデータ取得境界
+- StockSnapshot: 条件判定に渡す評価用データ。UIや外部APIレスポンスへ直接依存させない
+- AlertRuleEvaluator: AlertRule と StockSnapshot を受け取り、条件一致、条件不一致、判定不能を返す
+- DataProvider相当: 手入力、モック、外部APIなどのデータ取得元を StockSnapshot に変換する境界
+- Service: 条件判定の呼び出し、履歴作成、通知候補作成
+- Repository相当: SwiftData、将来バックエンド、外部APIに差し替える場合の保存・取得境界
 
 初期版では過度に複雑なアーキテクチャにしません。ただし、条件判定ロジックは View から分離し、将来 Web/PC 版やバックエンドでも再利用しやすい形を目指します。
+
+## 株価・指標値取得の抽象化方針
+
+条件判定ロジックは、手入力画面、モックデータ、外部API、リアルタイムデータを直接参照しません。データ取得元を DataProvider 相当の境界に閉じ込め、AlertRuleEvaluator は StockSnapshot だけを入力として扱います。
+
+初期版の流れ:
+
+1. 手入力値またはモックデータを取得する
+2. ManualInputStockDataProvider または MockStockDataProvider 相当の境界で StockSnapshot を生成する
+3. StockSnapshot と AlertRule を AlertRuleEvaluator に渡す
+4. 条件一致、条件不一致、判定不能を返す
+
+将来版の流れ:
+
+1. 外部API、Web取得、リアルタイムデータなどから値を取得する
+2. ExternalApiStockDataProvider、WebStockDataProvider、RealtimeStockDataProvider 相当の境界で StockSnapshot を生成する
+3. StockSnapshot と AlertRule を AlertRuleEvaluator に渡す
+4. 条件一致、条件不一致、判定不能を返す
+
+この分離により、外部API連携を追加しても AlertRuleEvaluator の基本責務を変えずに済みます。データ不足や取得失敗は StockSnapshot の欠損として表現し、判定結果は「判定不能」として扱います。
+
+## アラート条件の初期範囲
+
+初期版では、1つの AlertRule は1つの条件式のみを持ちます。ただし、1つの銘柄に対して複数の AlertRule を登録できます。複数条件の AND / OR 組み合わせは後続対応とします。
+
+初期版で対応する基本比較演算子:
+
+- greaterThan
+- greaterThanOrEqual
+- lessThan
+- lessThanOrEqual
+- equal
+- notEqual
+
+後続対応にする比較演算子:
+
+- withinDays
+- ratioGreaterThanOrEqual
+
+対象指標と比較演算子は分離します。初期版では currentPrice を最優先にし、per、pbr、volume は手入力値またはモック値として対応できる余地を残します。
 
 ## 銘柄マスタとウォッチリストの分離方針
 
@@ -116,6 +161,7 @@ View は表示とユーザー操作の受け取りを担当します。条件判
 - 日経225採用銘柄やユーザー追加銘柄の基本情報を保持する
 - 銘柄コード、銘柄名、市場区分、業種、日経225採用フラグなどを持つ
 - 将来的に外部データ更新の対象になる
+- 日経225ローカルJSONには、可能であれば sourceName、asOfDate、stocks のようなメタ情報を持たせる
 
 ウォッチリスト:
 
@@ -134,7 +180,8 @@ View は表示とユーザー操作の受け取りを担当します。条件判
 - 作成日時、更新日時、削除状態を持てるようにする
 - 銘柄マスタとユーザーデータを分離する
 - 条件判定ロジックをデータ保存方式に依存させない
-- 外部APIから取得した指標値を、画面に直接渡さず評価用データとして整形する
+- 外部APIから取得した指標値を、画面や判定処理に直接渡さず StockSnapshot として整形する
+- DataProvider 相当の境界を差し替えることで、手入力・モック・外部API・リアルタイムデータの違いを吸収する
 - 同期処理や競合解決は初期版では実装しないが、将来の設計課題として残す
 
 将来の構成案:

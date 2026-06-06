@@ -48,6 +48,7 @@
 作業候補:
 
 - ローカルJSONで日経225銘柄候補を作成
+- ローカルJSONには、可能であれば sourceName、asOfDate、stocks のようなメタ情報を持たせる
 - StockMaster 取り込み処理を作成
 - 銘柄コード、銘柄名、市場区分、業種、日経225採用フラグを保持
 - 将来マスタ更新に差し替えやすい読み込み境界を用意
@@ -55,6 +56,7 @@
 注意:
 
 - 日経225採用銘柄は変更される可能性があるため、初期データは固定のモックとして扱う
+- asOfDate により、モック銘柄一覧がいつ時点のものか分かるようにする
 - 正式な銘柄マスタ更新は将来機能にする
 
 ## Step 4: ウォッチリスト画面
@@ -113,7 +115,9 @@
 
 目的:
 
-- 銘柄ごとにシンプルな条件を設定できるようにする
+- 銘柄ごとに AlertRule を設定できるようにする
+- 初期版では、1つの AlertRule は1つの条件式だけを持つ
+- 1つの銘柄には複数の AlertRule を登録できる
 
 作業候補:
 
@@ -122,32 +126,45 @@
 - 条件作成・編集画面
 - 対象指標、比較演算子、しきい値の入力
 - 有効・無効切り替え
+- 基本比較演算子 greaterThan、greaterThanOrEqual、lessThan、lessThanOrEqual、equal、notEqual の選択
+
+初期版で後続対応にする比較演算子:
+
+- withinDays
+- ratioGreaterThanOrEqual
 
 初期優先条件:
 
-- 株価が○円以上
-- 株価が○円以下
+- currentPrice と基本比較演算子の組み合わせ
+
+初期版で手入力・モック値として対応余地を残す指標:
+
+- PER
+- PBR
+- 出来高
 
 後続条件:
 
 - 前日比
-- PER
-- PBR
-- 出来高
 - 決算日までの日数
 - 目標株価
 - 損切りライン
+- 出来高の過去平均比較
+- 移動平均線、RSI、MACD など
 
 ## Step 8: 条件判定ロジック
 
 目的:
 
-- View から分離した条件判定処理を作る
+- View とデータ取得元から分離した条件判定処理を作る
 
 作業候補:
 
-- 評価用データ構造の作成
+- StockSnapshot 評価用データ構造の作成
+- ManualInputStockDataProvider 相当の境界作成
+- MockStockDataProvider 相当の境界作成
 - AlertRuleEvaluator の作成
+- AlertRuleEvaluator が StockSnapshot と AlertRule だけを入力として受け取る構成にする
 - matched / notMatched / unavailable の判定結果
 - モックデータまたは手入力値による判定
 - 条件一致時の履歴作成
@@ -156,6 +173,7 @@
 
 - 判定結果は売買判断ではなく条件一致の事実として扱う
 - データ不足時は「判定不能」とする
+- AlertRuleEvaluator は手入力画面、モックデータ、外部APIを直接参照しない
 
 ## Step 9: 通知履歴画面
 
@@ -182,6 +200,7 @@
 作業候補:
 
 - データ取得サービスの抽象化
+- ExternalApiStockDataProvider、WebStockDataProvider、RealtimeStockDataProvider 相当の検討
 - 外部株価APIの選定
 - APIレスポンスを StockSnapshot に変換
 - レート制限、取得失敗、欠損値への対応
@@ -190,6 +209,7 @@
 注意:
 
 - 外部APIを追加しても、アプリが売買推奨を行わない方針は維持する
+- 外部APIを追加しても AlertRuleEvaluator の入力は StockSnapshot のままにする
 - リアルタイム性は要件とコストを確認してから検討する
 
 ## Step 11: Web/PC版への拡張方針
@@ -211,6 +231,7 @@
 
 - SwiftUI固有の実装とドメインロジックを分離しておく
 - 条件定義はJSON化しやすい構造にする
+- StockSnapshot と DataProvider 相当の境界を、Web/PC版やバックエンドでも再利用できる考え方にしておく
 - iPhone版とWeb/PC版で表示文言の方針を統一する
 
 ## 実装に進む前の注意点
@@ -220,5 +241,6 @@
 - 日経225銘柄マスタは変更されるため、初期データの更新方法を後で設計する
 - UI文言は売買推奨に見えないようにレビューする
 - 条件判定ロジックは View に直接書かない
+- 条件判定ロジックはデータ取得元にも直接依存させない
 - 外部API、リアルタイム板情報、自動売買は初期版に入れない
 - 大きな変更前には作業計画を提示し、関連ドキュメントも更新する

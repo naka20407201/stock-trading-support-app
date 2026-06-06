@@ -20,8 +20,10 @@
 - iOS アプリ: Swift / SwiftUI
 - ローカル保存: SwiftData を第一候補
 - 開発環境: MacBook / Xcode / Codex
-- 初期データ: 日経225採用銘柄のローカルJSONまたはモックデータ
-- 条件判定: View から分離したドメインロジックとして設計
+- 初期データ: 日経225採用銘柄のローカルJSONまたはモックデータ。`sourceName` と `asOfDate` などのメタ情報を持たせる方針
+- 条件判定: View から分離した `AlertRuleEvaluator` として設計
+- 評価用データ: 手入力値またはモック値から `StockSnapshot` を生成し、条件判定へ渡す
+- データ取得境界: 初期版では `ManualInputStockDataProvider` / `MockStockDataProvider` 相当、将来版では外部API用Providerに差し替える
 - 外部連携: 初期版では外部株価API、リアルタイム株価、板情報、自動売買を扱わない
 
 ## 初期版の範囲
@@ -32,7 +34,11 @@
 - 任意銘柄の手入力追加
 - ウォッチリスト管理
 - 銘柄ごとの投資メモ管理
-- シンプルな1条件アラート設定
+- 1つの AlertRule が1つの条件式を持つアラート設定
+- 1つの銘柄に対する複数 AlertRule の登録
+- 基本比較演算子の対応: greaterThan、greaterThanOrEqual、lessThan、lessThanOrEqual、equal、notEqual
+- 初期優先指標: currentPrice
+- 手入力・モック値として対応余地を残す指標: per、pbr、volume
 - モック値または手入力値による条件判定
 - 条件一致履歴の保存
 - 確認済みフラグの管理

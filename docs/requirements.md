@@ -29,6 +29,7 @@
 - 初期版では日本株を対象にする
 - 日経225採用銘柄を標準の銘柄候補として扱う
 - 日経225銘柄一覧はローカルJSONまたはモックデータとして保持してよい
+- ローカルJSONには、可能であれば `sourceName`、`asOfDate`、`stocks` のようなメタ情報を持たせる
 - 銘柄マスタには、銘柄コード、銘柄名、市場区分、業種、日経225採用フラグなどを持たせる
 - 将来的に外部APIやマスタ更新で差し替えられるようにする
 
@@ -55,14 +56,25 @@
 ### 5. アラート条件設定
 
 - 銘柄ごとに条件を設定できる
-- 初期版ではシンプルな1条件アラートを優先する
+- 初期版では、1つの AlertRule は1つの条件式のみを持つ
+- ただし、1つの銘柄に対して複数の AlertRule を登録できる
 - 将来的に複数条件の AND / OR 組み合わせを追加できるデータ構造にする
 - 条件種別は後から追加しやすいように、条件の種類、比較演算子、しきい値、対象指標を分離して持つ
+- 初期版では、基本比較演算子として greaterThan、greaterThanOrEqual、lessThan、lessThanOrEqual、equal、notEqual に対応する
+- withinDays は決算日などの日付データが必要になるため後続対応にする
+- ratioGreaterThanOrEqual は過去平均や基準値などの追加データ設計が必要になるため後続対応にする
+- 初期版の最優先指標は currentPrice とする
+- per、pbr、volume は手入力値またはモック値として対応できる余地を残す
+- priceChangePercent、daysUntilEarnings、targetPrice、stopLossPrice、volumeAverageRatio、movingAverageDeviation、rsi、macd は後続対応とする
 
 ### 6. 条件判定
 
 - 初期版では、手入力値またはモックデータをもとに条件判定する
 - 条件判定処理は SwiftUI View から分離する
+- AlertRuleEvaluator は、手入力画面、モックデータ、外部APIを直接参照しない
+- AlertRuleEvaluator は StockSnapshot のような評価用データ構造を入力として受け取る
+- 初期版では、ManualInputStockDataProvider または MockStockDataProvider 相当の境界から StockSnapshot を生成する
+- 将来版では、外部APIやネット経由で取得したデータから StockSnapshot を生成する
 - 判定結果は「条件一致」「条件不一致」「判定不能」のような事実ベースで扱う
 - 不足データがある場合は、売買判断ではなく「必要な値が未入力」として扱う
 
@@ -79,6 +91,7 @@
 - 初期版はローカル保存で完結する
 - SwiftData を第一候補にする
 - View、Model、条件判定ロジックを分離する
+- データ取得元と条件判定ロジックを分離する
 - 将来的なWeb版、PC版、バックエンド化を見据えて、ドメインモデルをUIに依存させすぎない
 - 外部APIがなくても開発・検証できる構成にする
 - 条件種別や指標を後から追加しやすくする
