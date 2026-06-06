@@ -65,25 +65,46 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 
 Codex実行環境で CoreSimulatorService へ接続できない場合は、Mac上のXcodeで `StockTradingSupportApp/StockTradingSupportApp.xcodeproj` を開き、iPhoneシミュレータを選択してビルド・テスト実行を確認する。
 
-## Step 3: 日経225モック銘柄マスタ作成
+## Step 3: 日経225モック銘柄マスタ作成 完了
 
 目的:
 
 - 初期状態で選択できる銘柄候補を用意する
 
-作業候補:
+完了内容:
 
-- ローカルJSONで日経225銘柄候補を作成
-- ローカルJSONには、可能であれば sourceName、asOfDate、stocks のようなメタ情報を持たせる
-- StockMaster 取り込み処理を作成
-- 銘柄コード、銘柄名、市場区分、業種、日経225採用フラグを保持
-- 将来マスタ更新に差し替えやすい読み込み境界を用意
+- 日経225モック銘柄JSONを作成済み
+- JSONの場所: `StockTradingSupportApp/StockTradingSupportApp/Resources/nikkei225_mock_stocks.json`
+- sourceName、asOfDate、description、stocks のメタ情報を付与済み
+- sourceName: `nikkei225Mock`
+- asOfDate: `2026-06-07`
+- 登録件数: 25件
+- 銘柄コード、銘柄名、市場区分、業種、日経225採用フラグ、ユーザー追加フラグを保持
+- JSON読み込み用の `StockMasterSeedFile` / `StockMasterSeed` を作成済み
+- ローカルJSON読み込み用の `StockMasterProviding` / `LocalStockMasterProvider` を作成済み
+- StockSearchView で日経225モック銘柄候補を仮表示済み
+- 読み込み失敗時と空データ時の表示を用意済み
+- ウォッチリストへの追加・保存は未実装のまま、候補表示の土台だけを作成済み
+- 次の Step 4「ウォッチリスト画面」に進める状態
 
 注意:
 
 - 日経225採用銘柄は変更される可能性があるため、初期データは固定のモックとして扱う
 - asOfDate により、モック銘柄一覧がいつ時点のものか分かるようにする
 - 正式な銘柄マスタ更新は将来機能にする
+- このStepでは外部API、リアルタイム株価取得、ウォッチリスト保存、任意銘柄追加は実装しない
+
+ビルド確認方法:
+
+```sh
+xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -scheme StockTradingSupportApp -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath /tmp/StockTradingSupportAppDerivedData build
+```
+
+テスト実行方法:
+
+```sh
+xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -scheme StockTradingSupportApp -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath /tmp/StockTradingSupportAppDerivedData test
+```
 
 ## Step 4: ウォッチリスト画面
 

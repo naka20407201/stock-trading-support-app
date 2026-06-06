@@ -34,6 +34,18 @@ final class StockTradingSupportAppUITests: XCTestCase {
     }
 
     @MainActor
+    func testStockSearchShowsNikkei225MockCandidates() throws {
+        let app = XCUIApplication()
+        app.launch()
+
+        app.tabBars.buttons["銘柄を追加"].tap()
+
+        XCTAssertTrue(app.staticTexts["日経225モック銘柄候補"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["トヨタ自動車"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["7203"].exists)
+    }
+
+    @MainActor
     func testLaunchPerformance() throws {
         // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {

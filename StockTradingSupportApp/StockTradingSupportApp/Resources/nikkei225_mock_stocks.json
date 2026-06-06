@@ -1,0 +1,207 @@
+{
+  "sourceName": "nikkei225Mock",
+  "asOfDate": "2026-06-07",
+  "description": "Initial fixed mock stock master for Nikkei 225 standard candidates. This data is for local development and does not guarantee the latest Nikkei 225 constituents.",
+  "stocks": [
+    {
+      "code": "7203",
+      "name": "トヨタ自動車",
+      "market": "TSE Prime",
+      "industry": "輸送用機器",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "6758",
+      "name": "ソニーグループ",
+      "market": "TSE Prime",
+      "industry": "電気機器",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "6503",
+      "name": "三菱電機",
+      "market": "TSE Prime",
+      "industry": "電気機器",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "6501",
+      "name": "日立製作所",
+      "market": "TSE Prime",
+      "industry": "電気機器",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "7974",
+      "name": "任天堂",
+      "market": "TSE Prime",
+      "industry": "その他製品",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "9984",
+      "name": "ソフトバンクグループ",
+      "market": "TSE Prime",
+      "industry": "情報・通信業",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "9983",
+      "name": "ファーストリテイリング",
+      "market": "TSE Prime",
+      "industry": "小売業",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "8035",
+      "name": "東京エレクトロン",
+      "market": "TSE Prime",
+      "industry": "電気機器",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "6861",
+      "name": "キーエンス",
+      "market": "TSE Prime",
+      "industry": "電気機器",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "8306",
+      "name": "三菱UFJフィナンシャル・グループ",
+      "market": "TSE Prime",
+      "industry": "銀行業",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "8316",
+      "name": "三井住友フィナンシャルグループ",
+      "market": "TSE Prime",
+      "industry": "銀行業",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "8411",
+      "name": "みずほフィナンシャルグループ",
+      "market": "TSE Prime",
+      "industry": "銀行業",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "9432",
+      "name": "日本電信電話",
+      "market": "TSE Prime",
+      "industry": "情報・通信業",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "9433",
+      "name": "KDDI",
+      "market": "TSE Prime",
+      "industry": "情報・通信業",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "9434",
+      "name": "ソフトバンク",
+      "market": "TSE Prime",
+      "industry": "情報・通信業",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "4502",
+      "name": "武田薬品工業",
+      "market": "TSE Prime",
+      "industry": "医薬品",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "4568",
+      "name": "第一三共",
+      "market": "TSE Prime",
+      "industry": "医薬品",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "4063",
+      "name": "信越化学工業",
+      "market": "TSE Prime",
+      "industry": "化学",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "8058",
+      "name": "三菱商事",
+      "market": "TSE Prime",
+      "industry": "卸売業",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "8001",
+      "name": "伊藤忠商事",
+      "market": "TSE Prime",
+      "industry": "卸売業",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "8031",
+      "name": "三井物産",
+      "market": "TSE Prime",
+      "industry": "卸売業",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "8053",
+      "name": "住友商事",
+      "market": "TSE Prime",
+      "industry": "卸売業",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "5401",
+      "name": "日本製鉄",
+      "market": "TSE Prime",
+      "industry": "鉄鋼",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "6752",
+      "name": "パナソニック ホールディングス",
+      "market": "TSE Prime",
+      "industry": "電気機器",
+      "isNikkei225": true,
+      "isUserAdded": false
+    },
+    {
+      "code": "7267",
+      "name": "本田技研工業",
+      "market": "TSE Prime",
+      "industry": "輸送用機器",
+      "isNikkei225": true,
+      "isUserAdded": false
+    }
+  ]
+}

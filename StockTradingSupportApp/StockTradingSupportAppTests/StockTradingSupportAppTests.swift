@@ -10,10 +10,16 @@ import Testing
 
 struct StockTradingSupportAppTests {
 
-    @Test func example() async throws {
-        // Write your test here and use APIs like `#expect(...)` to check expected conditions.
-        // Swift Testing Documentation
-        // https://developer.apple.com/documentation/testing
+    @Test func loadsNikkei225MockStockMaster() throws {
+        let provider = LocalStockMasterProvider()
+        let seedFile = try provider.loadSeedFile()
+
+        #expect(seedFile.sourceName == "nikkei225Mock")
+        #expect(seedFile.asOfDate == "2026-06-07")
+        #expect(seedFile.stocks.count == 25)
+        #expect(seedFile.stocks.contains { stock in
+            stock.code == "7203" && stock.name == "トヨタ自動車"
+        })
     }
 
 }
