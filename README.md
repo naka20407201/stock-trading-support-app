@@ -79,15 +79,56 @@
 
 ## 起動方法
 
-現時点ではドキュメント作成段階のため、Xcodeプロジェクトと実装コードは未作成です。
+Xcodeプロジェクトは作成済みです。現時点の画面は、今後の開発に向けた仮画面です。
 
-実装開始後に、以下の項目を追記します。
+プロジェクト構成:
 
-- Xcodeプロジェクトの場所
-- 対応Xcodeバージョン
-- iOSの最低対応バージョン
-- ローカル実行手順
-- テスト実行手順
+- Xcodeプロジェクト: `StockTradingSupportApp/StockTradingSupportApp.xcodeproj`
+- アプリ本体: `StockTradingSupportApp/StockTradingSupportApp/`
+- App entry: `StockTradingSupportApp/StockTradingSupportApp/App/`
+- 画面: `StockTradingSupportApp/StockTradingSupportApp/Views/`
+- SwiftDataモデル: `StockTradingSupportApp/StockTradingSupportApp/Models/`
+- Domain: `StockTradingSupportApp/StockTradingSupportApp/Domain/`
+- Services: `StockTradingSupportApp/StockTradingSupportApp/Services/`
+- DataProviders: `StockTradingSupportApp/StockTradingSupportApp/DataProviders/`
+- Repositories: `StockTradingSupportApp/StockTradingSupportApp/Repositories/`
+- Resources: `StockTradingSupportApp/StockTradingSupportApp/Resources/`
+
+開発環境:
+
+- 推奨Xcodeバージョン: Xcode 26.4.1 以降
+- 最低対応iOSバージョン: iOS 26.4
+- SwiftUI / SwiftData を利用
+
+ローカル実行手順:
+
+1. Xcodeで `StockTradingSupportApp/StockTradingSupportApp.xcodeproj` を開く
+2. Scheme に `StockTradingSupportApp` を選択する
+3. 実行先に iPhone シミュレータを選択する
+4. Run を実行する
+
+テスト実行手順:
+
+1. Xcodeで `StockTradingSupportApp/StockTradingSupportApp.xcodeproj` を開く
+2. Scheme に `StockTradingSupportApp` を選択する
+3. Test を実行する
+
+コマンドラインで確認する場合:
+
+```sh
+xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -scheme StockTradingSupportApp -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath /tmp/StockTradingSupportAppDerivedData build
+xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -scheme StockTradingSupportApp -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath /tmp/StockTradingSupportAppDerivedData test
+```
+
+Codex実行環境で CoreSimulatorService への接続やユーザーキャッシュ領域へのアクセスが制限される場合は、Mac上のXcodeから上記手順で実行・テストしてください。
+
+現時点の注意:
+
+- 初期画面は仮画面です
+- SwiftData利用前提の構成は残していますが、本格的な永続化モデルは未実装です
+- SwiftDataの詳細モデルを追加するまでは、ModelContainer 用の最小プレースホルダモデルを利用します
+- 外部APIやリアルタイムデータ取得は行いません
+- 自動売買、証券口座連携、板情報取得は行いません
 
 ## ドキュメント
 

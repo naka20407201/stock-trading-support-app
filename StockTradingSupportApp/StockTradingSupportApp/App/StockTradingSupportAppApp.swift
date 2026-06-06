@@ -5,14 +5,14 @@
 //  Created by 中塚康喜 on 2026/06/07.
 //
 
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 @main
 struct StockTradingSupportAppApp: App {
-    var sharedModelContainer: ModelContainer = {
+    private let sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            Item.self,
+            PersistenceSchemaPlaceholder.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -25,7 +25,7 @@ struct StockTradingSupportAppApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
         }
         .modelContainer(sharedModelContainer)
     }

@@ -24,7 +24,7 @@
 - docs/development-plan.md
 - AGENTS.md
 
-## Step 2: SwiftUIプロジェクト作成
+## Step 2: SwiftUIプロジェクト作成 完了
 
 目的:
 
@@ -38,6 +38,32 @@
 - SwiftData の有効化
 - アプリ名、Bundle Identifier の仮決定
 - ビルド確認
+
+完了内容:
+
+- Xcodeプロジェクト作成済み
+- Xcodeプロジェクトの場所: `StockTradingSupportApp/StockTradingSupportApp.xcodeproj`
+- アプリ本体の場所: `StockTradingSupportApp/StockTradingSupportApp/`
+- SwiftUIアプリの初期画面作成済み
+- RootView、WatchlistView、StockSearchView、StockDetailView、SettingsView を作成済み
+- SwiftData利用前提の ModelContainer 構成準備済み
+- Xcode標準テンプレートの ContentView / Item をアプリ向け初期構成に整理済み
+- App、Views、Models、Domain、Services、DataProviders、Repositories、Resources の基本フォルダを作成済み
+- 次の Step 3「日経225モック銘柄マスタ作成」に進める状態
+
+ビルド確認方法:
+
+```sh
+xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -scheme StockTradingSupportApp -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath /tmp/StockTradingSupportAppDerivedData build
+```
+
+テスト実行方法:
+
+```sh
+xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -scheme StockTradingSupportApp -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath /tmp/StockTradingSupportAppDerivedData test
+```
+
+Codex実行環境で CoreSimulatorService へ接続できない場合は、Mac上のXcodeで `StockTradingSupportApp/StockTradingSupportApp.xcodeproj` を開き、iPhoneシミュレータを選択してビルド・テスト実行を確認する。
 
 ## Step 3: 日経225モック銘柄マスタ作成
 
@@ -234,9 +260,10 @@
 - StockSnapshot と DataProvider 相当の境界を、Web/PC版やバックエンドでも再利用できる考え方にしておく
 - iPhone版とWeb/PC版で表示文言の方針を統一する
 
-## 実装に進む前の注意点
+## 次の実装に進む前の注意点
 
-- Xcodeプロジェクト作成前に、アプリ名、最低対応iOSバージョン、保存方式を確認する
+- Xcodeプロジェクトは作成済みのため、次は Step 3 の日経225モック銘柄マスタ作成に進む
+- 日経225モックJSONには sourceName、asOfDate、stocks のメタ情報を持たせる
 - SwiftDataを使う場合、モデル変更時の移行方針を早めに意識する
 - 日経225銘柄マスタは変更されるため、初期データの更新方法を後で設計する
 - UI文言は売買推奨に見えないようにレビューする
