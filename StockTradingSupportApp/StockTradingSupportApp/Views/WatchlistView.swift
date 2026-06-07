@@ -8,26 +8,19 @@
 import SwiftUI
 
 struct WatchlistView: View {
-    private let repository: any WatchlistRepository
-
-    @State private var items: [WatchlistItem]
-
-    init(repository: any WatchlistRepository = InMemoryWatchlistRepository.sample()) {
-        self.repository = repository
-        _items = State(initialValue: repository.fetchItems())
-    }
+    @ObservedObject var viewModel: WatchlistViewModel
 
     var body: some View {
         List {
-            if items.isEmpty {
+            if viewModel.items.isEmpty {
                 ContentUnavailableView(
                     "ウォッチリストは未登録です",
                     systemImage: "list.bullet.rectangle",
-                    description: Text("日経225候補からの追加と任意銘柄追加は、今後のステップで実装します。")
+                    description: Text("右上の追加ボタンから銘柄を追加できます。")
                 )
             } else {
                 Section("ウォッチリスト") {
-                    ForEach(items) { item in
+                    ForEach(viewModel.items) { item in
                         NavigationLink {
                             StockDetailView(watchlistItem: item)
                         } label: {
@@ -45,20 +38,22 @@ struct WatchlistView: View {
             }
         }
         .navigationTitle("ウォッチリスト")
-        .onAppear(perform: refreshItems)
-    }
-
-    private func refreshItems() {
-        items = repository.fetchItems()
+        .toolbar {
+            NavigationLink {
+                AddStockView(viewModel: viewModel)
+            } label: {
+                Image(systemName: "plus")
+            }
+            .accessibilityLabel("銘柄を追加")
+        }
+        .onAppear(perform: viewModel.refresh)
     }
 
     private func deleteItems(at offsets: IndexSet) {
         for index in offsets {
-            let item = items[index]
-            _ = repository.delete(id: item.id)
+            let item = viewModel.items[index]
+            viewModel.delete(id: item.id)
         }
-
-        refreshItems()
     }
 }
 
@@ -84,6 +79,6 @@ private struct WatchlistItemRow: View {
 
 #Preview {
     NavigationStack {
-        WatchlistView()
+        WatchlistView(viewModel: WatchlistViewModel())
     }
 }

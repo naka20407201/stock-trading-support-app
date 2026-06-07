@@ -148,20 +148,33 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -scheme StockTradingSupportApp -destination 'platform=iOS Simulator,name=iPhone 17' -derivedDataPath /tmp/StockTradingSupportAppDerivedData test
 ```
 
-## Step 5: 銘柄追加画面
+## Step 5: 銘柄追加画面 完了
 
 目的:
 
 - 日経225銘柄候補と任意銘柄をウォッチリストに追加できるようにする
 
-次回実装予定:
+完了内容:
 
-- 日経225候補からウォッチリストへ追加
-- 任意銘柄追加フォーム
-- 銘柄コードと銘柄名の入力チェック
-- 重複追加の抑制
-- 追加後のウォッチリスト一覧更新
-- 将来SwiftData永続化へ差し替えやすいRepository利用の維持
+- `WatchlistViewModel` を作成済み
+- RootView で `WatchlistViewModel` を保持し、WatchlistView と AddStockView で同じウォッチリスト状態を共有する構成にした
+- WatchlistView の右上に銘柄追加ボタンを追加済み
+- AddStockView を作成済み
+- 日経225モック銘柄候補を LocalStockMasterProvider から読み込み、銘柄名、銘柄コード、市場区分、業種を表示済み
+- 未登録銘柄には「追加」ボタン、登録済み銘柄には「登録済み」を表示済み
+- 日経225候補から WatchlistItem を作成してウォッチリストに追加できるようにした
+- 任意銘柄追加フォームを作成済み
+- 任意銘柄では銘柄コード、銘柄名、市場区分、業種を入力できるようにした
+- 銘柄コード4桁数字、銘柄名空不可、市場区分空不可、業種空不可、重複コード不可の入力チェックを追加済み
+- 任意銘柄追加時は `isNikkei225 = false` とする
+- 重複追加は ViewModel / Repository 側でも防ぐ
+- UI文言は「銘柄を追加」「日経225候補」「登録済み」「ウォッチリストに追加しました」など中立的な表現に統一した
+- SwiftData による本格永続化は未実装で、初期版は InMemoryWatchlistRepository で動作確認する
+
+注意:
+
+- 外部API、リアルタイム株価取得、自動売買、証券口座連携、板情報取得は実装しない
+- InMemoryWatchlistRepository の状態はアプリ起動中の確認用であり、永続化は後続対応にする
 
 ## Step 6: 銘柄詳細・投資メモ画面
 
@@ -176,11 +189,15 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 - メモ編集画面
 - 買いたい理由、売る条件、損切り条件、目標株価、注意点、決算前メモ、自由メモの入力
 - 保存・更新処理
+- メモ削除
+- ウォッチリスト銘柄とメモの紐づけ
+- 将来 SwiftData 永続化へ差し替えやすい構成維持
 
 注意:
 
 - メモはユーザー自身が入力する判断材料として扱う
 - アプリ側がメモを解釈して助言しない
+- 外部API、リアルタイム株価取得、自動売買、証券口座連携、板情報取得はこのStepでも実装しない
 
 ## Step 7: アラート条件設定画面
 

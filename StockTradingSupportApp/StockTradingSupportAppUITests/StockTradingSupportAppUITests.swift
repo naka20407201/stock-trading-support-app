@@ -34,15 +34,16 @@ final class StockTradingSupportAppUITests: XCTestCase {
     }
 
     @MainActor
-    func testStockSearchShowsNikkei225MockCandidates() throws {
+    func testAddStockShowsNikkei225Candidates() throws {
         let app = XCUIApplication()
         app.launch()
 
         app.tabBars.buttons["銘柄を追加"].tap()
 
-        XCTAssertTrue(app.staticTexts["日経225モック銘柄候補"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["日経225候補から追加"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["トヨタ自動車"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.staticTexts["7203"].exists)
+        XCTAssertTrue(app.staticTexts["登録済み"].exists)
     }
 
     @MainActor

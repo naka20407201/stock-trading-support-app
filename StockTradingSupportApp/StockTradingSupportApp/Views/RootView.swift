@@ -8,17 +8,19 @@
 import SwiftUI
 
 struct RootView: View {
+    @StateObject private var watchlistViewModel = WatchlistViewModel()
+
     var body: some View {
         TabView {
             NavigationStack {
-                WatchlistView()
+                WatchlistView(viewModel: watchlistViewModel)
             }
             .tabItem {
                 Label("ウォッチリスト", systemImage: "list.bullet")
             }
 
             NavigationStack {
-                StockSearchView()
+                AddStockView(viewModel: watchlistViewModel)
             }
             .tabItem {
                 Label("銘柄を追加", systemImage: "plus.magnifyingglass")

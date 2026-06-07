@@ -55,6 +55,20 @@ StockMaster は、銘柄の基本情報を保持するモデルです。日経22
 
 WatchlistItem は、ユーザーが監視対象として選んだ銘柄を表します。StockMaster とは分離し、ユーザー固有の状態を持ちます。
 
+Step 4 / Step 5 時点では、SwiftData 永続化モデルではなく通常の Swift 構造体として実装します。初期実装の `WatchlistItem` は、ウォッチリスト表示、銘柄詳細への遷移、任意銘柄追加の受け皿として以下を保持します。
+
+| 項目 | 内容 |
+| --- | --- |
+| id | ローカルID |
+| code | 銘柄コード |
+| name | 銘柄名 |
+| market | 市場区分 |
+| industry | 業種 |
+| isNikkei225 | 日経225標準候補かどうか |
+| createdAt | 作成日時 |
+
+将来 SwiftData 化する場合は、以下のように StockMaster への参照や監視状態、表示順などを追加・移行します。
+
 | 項目 | 内容 |
 | --- | --- |
 | id | ローカルID |
@@ -81,6 +95,10 @@ Step 4 の初期実装では、SwiftData永続化モデルではなく通常のS
 設計メモ:
 
 - 同じ StockMaster を、ユーザーがウォッチリストに追加した状態として扱う
+- Step 5 時点では `WatchlistViewModel` が `WatchlistRepository` を利用し、WatchlistView と AddStockView で同じウォッチリスト状態を共有する
+- 初期版では `InMemoryWatchlistRepository` を利用し、SwiftData による本格永続化は後続対応にする
+- 任意銘柄追加時は `isNikkei225 = false` として扱う
+- 銘柄コードの重複は ViewModel / Repository 側でも防ぐ
 - 将来ユーザーアカウントを導入する場合は userId を追加する
 - 削除は物理削除から始めてもよいが、将来同期する場合は archivedAt や deletedAt を検討する
 - Step 4 では `WatchlistRepository` / `InMemoryWatchlistRepository` を用意し、SwiftDataや将来APIへ差し替えやすい保存境界を先に作る

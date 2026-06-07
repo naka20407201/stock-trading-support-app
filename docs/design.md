@@ -86,6 +86,8 @@
 - App entry
 - RootView
 - WatchlistView
+- WatchlistViewModel
+- AddStockView
 - StockSearchView
 - CustomStockFormView
 - StockDetailView
@@ -102,6 +104,7 @@ View は表示とユーザー操作の受け取りを担当します。条件判
 責務を以下のように分けます。
 
 - View: 画面表示、入力、画面遷移
+- ViewModel: View間で共有する画面状態とRepository呼び出し
 - Model: SwiftDataで保存する永続化対象
 - Domain: アラート条件、指標、判定結果などのアプリ固有概念
 - StockSnapshot: 条件判定に渡す評価用データ。UIや外部APIレスポンスへ直接依存させない
@@ -111,6 +114,8 @@ View は表示とユーザー操作の受け取りを担当します。条件判
 - Repository相当: SwiftData、将来バックエンド、外部APIに差し替える場合の保存・取得境界
 
 初期版では過度に複雑なアーキテクチャにしません。ただし、条件判定ロジックは View から分離し、将来 Web/PC 版やバックエンドでも再利用しやすい形を目指します。
+
+Step 5 時点では、RootView が `WatchlistViewModel` を保持し、WatchlistView と AddStockView に同じインスタンスを渡します。これにより、日経225候補または任意入力銘柄を AddStockView で追加したあと、WatchlistView の一覧に同じウォッチリスト状態を反映できます。View は InMemoryWatchlistRepository を直接操作せず、ViewModel 経由で追加、削除、重複確認を行います。
 
 ## 株価・指標値取得の抽象化方針
 
