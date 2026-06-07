@@ -46,8 +46,15 @@ final class SwiftDataWatchlistRepository: WatchlistRepository, RepositoryReadSta
 
     @discardableResult
     func add(_ item: WatchlistItem) throws -> WatchlistItem {
-        guard !contains(code: item.code) else {
-            throw WatchlistRepositoryError.duplicateCode(item.code)
+        do {
+            guard try fetchRecord(code: item.code) == nil else {
+                throw WatchlistRepositoryError.duplicateCode(item.code)
+            }
+        } catch let error as WatchlistRepositoryError {
+            throw error
+        } catch {
+            readErrorMessage = RepositoryStatusMessage.readFailed
+            throw WatchlistRepositoryError.persistenceFailure(error.localizedDescription)
         }
 
         let record = WatchlistItemRecord(item: item)

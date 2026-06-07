@@ -53,7 +53,7 @@ enum AlertMetric: String, CaseIterable, Identifiable {
     }
 
     static var selectableCases: [AlertMetric] {
-        [.currentPrice]
+        [.currentPrice, .per, .pbr, .volume]
     }
 
     private static let decimalFormatter: NumberFormatter = {

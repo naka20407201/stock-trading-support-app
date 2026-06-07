@@ -66,7 +66,8 @@ struct AlertRuleEditorView: View {
             }
 
             Section("補足") {
-                Label("初期版では現在値のみ設定できます。PER、PBR、出来高は後続対応予定です。", systemImage: "info.circle")
+                Label("現在値、PER、PBR、出来高を設定できます。", systemImage: "info.circle")
+                Label("未入力の評価用データは評価できません。", systemImage: "exclamationmark.triangle")
                 Label("外部API・リアルタイム株価取得は未実装です", systemImage: "wifi.slash")
             }
         }

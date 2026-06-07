@@ -78,6 +78,7 @@ final class SwiftDataAlertMatchHistoryRepository: AlertMatchHistoryRepository, R
             try modelContext.save()
         } catch {
             modelContext.rollback()
+            // TODO: Consider changing AlertMatchHistoryRepository.deleteAll(stockCode:) to return Bool or throw.
         }
     }
 

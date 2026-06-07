@@ -65,8 +65,8 @@
 - 条件ごとに有効/無効を切り替えられる
 - withinDays は決算日などの日付データが必要になるため後続対応にする
 - ratioGreaterThanOrEqual は過去平均や基準値などの追加データ設計が必要になるため後続対応にする
-- 初期版の最優先指標は currentPrice とする
-- per、pbr、volume は手入力値またはモック値として対応できる余地を残す
+- 初期版の評価対象指標は currentPrice、per、pbr、volume とする
+- per、pbr、volume は手入力値またはモック値がある場合に評価でき、未入力または欠損時は判定不能として扱う
 - priceChangePercent、daysUntilEarnings、targetPrice、stopLossPrice、volumeAverageRatio、movingAverageDeviation、rsi、macd は後続対応とする
 
 ### 6. 条件判定
@@ -79,8 +79,10 @@
 - 将来版では、外部APIやネット経由で取得したデータから StockSnapshot を生成する
 - 判定結果は「条件一致」「条件不一致」「判定不能」「無効」のような事実ベースで扱う
 - 不足データがある場合は、売買判断ではなく「必要な値が未入力」として扱う
-- Step 8 時点では、固定モック株価を使って currentPrice の条件評価を行える
-- 固定モック株価はローカル開発用の値であり、実際の株価や最新データを保証しない
+- Step 11 時点では、手入力評価データまたは固定モック値を使って currentPrice、per、pbr、volume の条件評価を行える
+- 手入力評価データがある場合は手入力値を優先し、手入力評価データが未登録の場合は固定モック値を使う
+- 未入力または欠損している指標は、推測せず判定不能として扱う
+- 固定モック値はローカル開発用の値であり、実際の株価、指標値、出来高、最新データを保証しない
 
 ### 7. 通知・履歴
 

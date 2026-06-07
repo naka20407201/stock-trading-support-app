@@ -140,6 +140,21 @@ struct StockTradingSupportAppTests {
     }
 
     @MainActor
+    @Test func manualStockSnapshotInputRecordConvertsToDomainModel() {
+        let input = makeManualStockSnapshotInput(stockCode: "7203")
+        let record = ManualStockSnapshotInputRecord(input: input)
+
+        #expect(record.id == input.id)
+        #expect(record.stockCode == input.stockCode)
+        #expect(record.currentPrice == input.currentPrice)
+        #expect(record.per == input.per)
+        #expect(record.pbr == input.pbr)
+        #expect(record.volume == input.volume)
+        #expect(record.domainModel == input)
+        #expect(ManualStockSnapshotInput(record: record) == input)
+    }
+
+    @MainActor
     @Test func swiftDataWatchlistRepositoryAddsAndFetchesItem() throws {
         let repository = try makeSwiftDataWatchlistRepository()
         let item = makeWatchlistItem(code: "6758", name: "ソニーグループ")
@@ -840,6 +855,15 @@ struct StockTradingSupportAppTests {
         ])
     }
 
+    @Test func alertMetricSelectableCasesIncludeManualEvaluationMetrics() {
+        #expect(AlertMetric.selectableCases == [
+            .currentPrice,
+            .per,
+            .pbr,
+            .volume
+        ])
+    }
+
     @Test func alertRuleEvaluatorEvaluatesInitialComparisonOperators() {
         let evaluator = AlertRuleEvaluator()
         let snapshot = makeStockSnapshot(stockCode: "7203", currentPrice: 100)
@@ -954,6 +978,32 @@ struct StockTradingSupportAppTests {
             } else {
                 Issue.record("\(metric.rawValue) はStockSnapshotの値で評価できる必要があります。")
             }
+        }
+    }
+
+    @Test func alertRuleEvaluatorReturnsUnavailableForMissingManualInputMetric() {
+        let evaluator = AlertRuleEvaluator()
+        let manualInput = makeManualStockSnapshotInput(
+            stockCode: "7203",
+            currentPrice: 3200,
+            per: nil,
+            pbr: nil,
+            volume: nil
+        )
+        let rule = makeAlertRule(
+            stockCode: "7203",
+            name: "PERの確認",
+            metric: .per,
+            comparisonOperator: .greaterThanOrEqual,
+            thresholdValue: 10
+        )
+
+        let result = evaluator.evaluate(rule: rule, snapshot: manualInput.stockSnapshot)
+
+        if case .unavailable(let reason) = result {
+            #expect(reason.contains("PER"))
+        } else {
+            Issue.record("手入力で未入力の指標は評価できない結果になる必要があります。")
         }
     }
 
@@ -1150,6 +1200,186 @@ struct StockTradingSupportAppTests {
         let repository = SwiftDataAlertMatchHistoryRepository(modelContainer: container)
 
         #expect(repository.fetchHistories(stockCode: "7203").isEmpty)
+    }
+
+    @MainActor
+    @Test func swiftDataManualStockSnapshotInputRepositorySavesAndFetchesInput() throws {
+        let repository = try makeSwiftDataManualStockSnapshotInputRepository()
+        let input = makeManualStockSnapshotInput(stockCode: "7203")
+
+        try repository.save(input)
+        let fetchedInput = repository.fetchInput(stockCode: "7203")
+
+        #expect(fetchedInput == input)
+        #expect(fetchedInput?.stockSnapshot.currentPrice == input.currentPrice)
+        #expect(fetchedInput?.stockSnapshot.sourceName == "手入力評価データ")
+    }
+
+    @MainActor
+    @Test func swiftDataManualStockSnapshotInputRepositoryUpdatesInputForStockCode() throws {
+        let repository = try makeSwiftDataManualStockSnapshotInputRepository()
+        let input = makeManualStockSnapshotInput(stockCode: "7203", currentPrice: 3200, per: 12.5)
+        let updatedInput = makeManualStockSnapshotInput(
+            id: UUID(uuidString: "BBBBBBBB-2222-3333-4444-EEEEEEEEEEEE")!,
+            stockCode: "7203",
+            currentPrice: 3300,
+            per: nil,
+            pbr: 1.2,
+            volume: nil,
+            updatedAt: Date(timeIntervalSince1970: 100)
+        )
+
+        try repository.save(input)
+        try repository.save(updatedInput)
+
+        #expect(repository.fetchInput(stockCode: "7203") == updatedInput)
+    }
+
+    @MainActor
+    @Test func swiftDataManualStockSnapshotInputRepositoryDeletesInput() throws {
+        let repository = try makeSwiftDataManualStockSnapshotInputRepository()
+        let input = makeManualStockSnapshotInput(stockCode: "7203")
+
+        try repository.save(input)
+        let didDelete = repository.delete(stockCode: "7203")
+
+        #expect(didDelete)
+        #expect(repository.fetchInput(stockCode: "7203") == nil)
+    }
+
+    @Test func manualInputStockDataProviderCreatesSnapshotFromInput() throws {
+        let input = makeManualStockSnapshotInput(
+            stockCode: "7203",
+            currentPrice: 3210,
+            per: 12.5,
+            pbr: nil,
+            volume: 2_000_000
+        )
+        let repository = InMemoryManualStockSnapshotInputRepository(initialInputs: [input])
+        let provider = ManualInputStockDataProvider(repository: repository)
+
+        let snapshot = provider.snapshot(for: "7203")
+
+        #expect(snapshot?.stockCode == "7203")
+        #expect(snapshot?.currentPrice == 3210)
+        #expect(snapshot?.per == 12.5)
+        #expect(snapshot?.pbr == nil)
+        #expect(snapshot?.volume == 2_000_000)
+        #expect(snapshot?.sourceName == "手入力評価データ")
+    }
+
+    @Test func manualInputStockDataProviderReturnsNilForMissingInput() {
+        let provider = ManualInputStockDataProvider(
+            repository: InMemoryManualStockSnapshotInputRepository()
+        )
+
+        #expect(provider.snapshot(for: "0000") == nil)
+    }
+
+    @Test func fallbackStockDataProviderPrefersManualInput() {
+        let manualInput = makeManualStockSnapshotInput(stockCode: "7203", currentPrice: 1234)
+        let provider = FallbackStockDataProvider(
+            primaryProvider: ManualInputStockDataProvider(
+                repository: InMemoryManualStockSnapshotInputRepository(initialInputs: [manualInput])
+            ),
+            fallbackProvider: MockStockDataProvider(
+                capturedAt: Date(timeIntervalSince1970: 100),
+                mockValues: ["7203": 3200]
+            )
+        )
+
+        let snapshot = provider.snapshot(for: "7203")
+
+        #expect(snapshot?.currentPrice == 1234)
+        #expect(snapshot?.sourceName == "手入力評価データ")
+    }
+
+    @Test func fallbackStockDataProviderUsesMockWhenManualInputIsMissing() {
+        let capturedAt = Date(timeIntervalSince1970: 100)
+        let provider = FallbackStockDataProvider(
+            primaryProvider: ManualInputStockDataProvider(
+                repository: InMemoryManualStockSnapshotInputRepository()
+            ),
+            fallbackProvider: MockStockDataProvider(
+                capturedAt: capturedAt,
+                mockValues: ["7203": 3200]
+            )
+        )
+
+        let snapshot = provider.snapshot(for: "7203")
+
+        #expect(snapshot?.currentPrice == 3200)
+        #expect(snapshot?.capturedAt == capturedAt)
+        #expect(snapshot?.sourceName == "固定モック株価")
+    }
+
+    @MainActor
+    @Test func manualStockSnapshotInputViewModelSavesOptionalValues() throws {
+        let viewModel = ManualStockSnapshotInputViewModel(
+            stockCode: "7203",
+            repository: InMemoryManualStockSnapshotInputRepository()
+        )
+
+        try viewModel.saveInput(
+            currentPriceText: "3210",
+            perText: "",
+            pbrText: "1.2",
+            volumeText: "",
+            updatedAt: Date(timeIntervalSince1970: 100)
+        )
+
+        #expect(viewModel.input?.currentPrice == 3210)
+        #expect(viewModel.input?.per == nil)
+        #expect(viewModel.input?.pbr == 1.2)
+        #expect(viewModel.input?.volume == nil)
+    }
+
+    @MainActor
+    @Test func manualStockSnapshotInputViewModelRejectsNonNumericValue() throws {
+        let viewModel = ManualStockSnapshotInputViewModel(
+            stockCode: "7203",
+            repository: InMemoryManualStockSnapshotInputRepository()
+        )
+
+        do {
+            try viewModel.saveInput(
+                currentPriceText: "abc",
+                perText: "",
+                pbrText: "",
+                volumeText: ""
+            )
+            Issue.record("数値ではない入力値は保存しない必要があります。")
+        } catch let error as ManualStockSnapshotInputValidationError {
+            #expect(error == .invalidNumber(.currentPrice))
+        } catch {
+            Issue.record("想定外のエラーです: \(error)")
+        }
+
+        #expect(viewModel.input == nil)
+    }
+
+    @MainActor
+    @Test func manualStockSnapshotInputViewModelRejectsNegativeValue() throws {
+        let viewModel = ManualStockSnapshotInputViewModel(
+            stockCode: "7203",
+            repository: InMemoryManualStockSnapshotInputRepository()
+        )
+
+        do {
+            try viewModel.saveInput(
+                currentPriceText: "",
+                perText: "-1",
+                pbrText: "",
+                volumeText: ""
+            )
+            Issue.record("0未満の入力値は保存しない必要があります。")
+        } catch let error as ManualStockSnapshotInputValidationError {
+            #expect(error == .negativeValue(.per))
+        } catch {
+            Issue.record("想定外のエラーです: \(error)")
+        }
+
+        #expect(viewModel.input == nil)
     }
 
     @MainActor
@@ -1377,6 +1607,28 @@ struct StockTradingSupportAppTests {
         )
     }
 
+    private func makeManualStockSnapshotInput(
+        id: UUID = UUID(uuidString: "AAAAAAAA-2222-3333-4444-EEEEEEEEEEEE")!,
+        stockCode: String,
+        currentPrice: Double? = 3200,
+        per: Double? = 12.5,
+        pbr: Double? = 1.1,
+        volume: Double? = 2_500_000,
+        updatedAt: Date = Date(timeIntervalSince1970: 0),
+        sourceName: String = "手入力評価データ"
+    ) -> ManualStockSnapshotInput {
+        ManualStockSnapshotInput(
+            id: id,
+            stockCode: stockCode,
+            currentPrice: currentPrice,
+            per: per,
+            pbr: pbr,
+            volume: volume,
+            updatedAt: updatedAt,
+            sourceName: sourceName
+        )
+    }
+
     @MainActor
     private func makeSwiftDataWatchlistRepository() throws -> SwiftDataWatchlistRepository {
         try SwiftDataWatchlistRepository(modelContainer: makeSwiftDataModelContainer())
@@ -1398,13 +1650,19 @@ struct StockTradingSupportAppTests {
     }
 
     @MainActor
+    private func makeSwiftDataManualStockSnapshotInputRepository() throws -> SwiftDataManualStockSnapshotInputRepository {
+        try SwiftDataManualStockSnapshotInputRepository(modelContainer: makeSwiftDataModelContainer())
+    }
+
+    @MainActor
     private func makeSwiftDataModelContainer() throws -> ModelContainer {
         let schema = Schema([
             PersistenceSchemaPlaceholder.self,
             WatchlistItemRecord.self,
             InvestmentMemoRecord.self,
             AlertRuleRecord.self,
-            AlertMatchHistoryRecord.self
+            AlertMatchHistoryRecord.self,
+            ManualStockSnapshotInputRecord.self
         ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         return try ModelContainer(for: schema, configurations: [configuration])

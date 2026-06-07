@@ -13,6 +13,7 @@ struct WatchlistView: View {
     let alertRuleRepository: any AlertRuleRepository
     let stockDataProvider: any StockDataProviding
     let alertMatchHistoryRepository: any AlertMatchHistoryRepository
+    let manualStockSnapshotInputRepository: any ManualStockSnapshotInputRepository
 
     var body: some View {
         List {
@@ -38,7 +39,8 @@ struct WatchlistView: View {
                                 memoRepository: investmentMemoRepository,
                                 alertRuleRepository: alertRuleRepository,
                                 stockDataProvider: stockDataProvider,
-                                alertMatchHistoryRepository: alertMatchHistoryRepository
+                                alertMatchHistoryRepository: alertMatchHistoryRepository,
+                                manualStockSnapshotInputRepository: manualStockSnapshotInputRepository
                             )
                         } label: {
                             WatchlistItemRow(item: item)
@@ -102,7 +104,8 @@ private struct WatchlistItemRow: View {
             investmentMemoRepository: InMemoryInvestmentMemoRepository(),
             alertRuleRepository: InMemoryAlertRuleRepository(),
             stockDataProvider: MockStockDataProvider(),
-            alertMatchHistoryRepository: InMemoryAlertMatchHistoryRepository()
+            alertMatchHistoryRepository: InMemoryAlertMatchHistoryRepository(),
+            manualStockSnapshotInputRepository: InMemoryManualStockSnapshotInputRepository()
         )
     }
 }

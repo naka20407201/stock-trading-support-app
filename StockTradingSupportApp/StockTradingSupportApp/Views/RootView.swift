@@ -13,19 +13,22 @@ struct RootView: View {
     private let alertRuleRepository: any AlertRuleRepository
     private let stockDataProvider: any StockDataProviding
     private let alertMatchHistoryRepository: any AlertMatchHistoryRepository
+    private let manualStockSnapshotInputRepository: any ManualStockSnapshotInputRepository
 
     init(
         watchlistViewModel: WatchlistViewModel = WatchlistViewModel(),
         investmentMemoRepository: any InvestmentMemoRepository = InMemoryInvestmentMemoRepository(),
         alertRuleRepository: any AlertRuleRepository = InMemoryAlertRuleRepository(),
         stockDataProvider: any StockDataProviding = MockStockDataProvider(),
-        alertMatchHistoryRepository: any AlertMatchHistoryRepository = InMemoryAlertMatchHistoryRepository()
+        alertMatchHistoryRepository: any AlertMatchHistoryRepository = InMemoryAlertMatchHistoryRepository(),
+        manualStockSnapshotInputRepository: any ManualStockSnapshotInputRepository = InMemoryManualStockSnapshotInputRepository()
     ) {
         _watchlistViewModel = StateObject(wrappedValue: watchlistViewModel)
         self.investmentMemoRepository = investmentMemoRepository
         self.alertRuleRepository = alertRuleRepository
         self.stockDataProvider = stockDataProvider
         self.alertMatchHistoryRepository = alertMatchHistoryRepository
+        self.manualStockSnapshotInputRepository = manualStockSnapshotInputRepository
     }
 
     var body: some View {
@@ -36,7 +39,8 @@ struct RootView: View {
                     investmentMemoRepository: investmentMemoRepository,
                     alertRuleRepository: alertRuleRepository,
                     stockDataProvider: stockDataProvider,
-                    alertMatchHistoryRepository: alertMatchHistoryRepository
+                    alertMatchHistoryRepository: alertMatchHistoryRepository,
+                    manualStockSnapshotInputRepository: manualStockSnapshotInputRepository
                 )
             }
             .tabItem {

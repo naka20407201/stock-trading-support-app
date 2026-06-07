@@ -252,15 +252,9 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 - withinDays
 - ratioGreaterThanOrEqual
 
-初期優先条件:
+初期対応条件:
 
-- currentPrice と基本比較演算子の組み合わせ
-
-初期版で手入力・モック値として対応余地を残す指標:
-
-- PER
-- PBR
-- 出来高
+- currentPrice、PER、PBR、出来高と基本比較演算子の組み合わせ
 
 後続条件:
 
@@ -373,41 +367,49 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 - SwiftData Repository の取得失敗時に、空状態と読み込み失敗をUI上で分ける改善は後続対応
 - SwiftData側の一意性制約やデータ移行時の重複統合方針は後続対応
 
-## Step 11: モックデータから外部API連携への拡張（前半完了）
+## Step 11: 手入力評価データと指標UI解放（完了）
 
 目的:
 
-- 手入力・モック値から外部データ取得へ段階的に拡張する
+- 外部API連携へ進む前に、ユーザーが評価用データを手入力できるようにする
+- currentPrice だけでなく PER、PBR、出来高もユーザー設定条件の対象指標として扱えるようにする
+- 手入力値、固定モック値、将来の外部取得値を StockSnapshot に変換して評価する境界を整理する
+
+完了内容:
+
+- `ManualStockSnapshotInput` を追加し、currentPrice、PER、PBR、出来高を任意入力できるDomainモデルを用意
+- `ManualStockSnapshotInputRecord` とDomainモデルの相互変換を追加
+- `ManualStockSnapshotInputRepository`、`InMemoryManualStockSnapshotInputRepository`、`SwiftDataManualStockSnapshotInputRepository` を追加
+- App entry の SwiftData Schema に `ManualStockSnapshotInputRecord` を登録し、アプリ本体では手入力評価データをSwiftDataへ保存
+- `ManualInputStockDataProvider` を追加し、手入力評価データを StockSnapshot に変換
+- `FallbackStockDataProvider` を追加し、手入力評価データがある場合は手入力値を優先し、未登録の場合は固定モック値へフォールバックする構成にした
+- StockDetailView に評価用データセクションを追加し、現在値、PER、PBR、出来高の表示、追加、編集、削除を行えるようにした
+- `ManualStockSnapshotInputEditorView` と `ManualStockSnapshotInputViewModel` を追加し、空欄は nil、数値以外と0未満はエラーとして扱う
+- 条件追加画面で `currentPrice`、`per`、`pbr`、`volume` を選択できるようにした
+- 未入力または欠損している指標を使う条件は「評価できません」として扱う
+- 条件一致履歴には、対象指標、比較演算子、しきい値、観測値、データソースを従来通り保存する
+- 手入力評価データ、SwiftData Repository、Provider優先順位、4指標評価、未入力指標の判定不能、入力バリデーションのテストを追加
+
+注意:
+
+- 外部API、リアルタイム株価、通知送信、自動売買、証券口座連携、板情報取得はこのStepでも実装しない
+- 条件一致は売買判断ではなく、ユーザー設定条件と入力値またはモック値の照合結果として扱う
+- 未入力指標は推測せず、判定不能として扱う
+- 条件一致履歴の全削除は既存プロトコルの戻り値を変えていないため、削除失敗理由の詳細表示は後続対応
+
+## Step 12: 外部API連携の検討と実装
+
+目的:
+
+- 手入力値・固定モック値で固めた StockSnapshot / DataProvider / AlertRuleEvaluator の境界を維持したまま、外部データ取得へ進む
 
 作業候補:
 
-- データ取得サービスの抽象化
-- ExternalApiStockDataProvider、WebStockDataProvider、RealtimeStockDataProvider 相当の検討
-- 外部株価APIの選定
-- APIレスポンスを StockSnapshot に変換
-- レート制限、取得失敗、欠損値への対応
-- 日足データや指標データの保存方針検討
-
-前半完了内容:
-
-- ルートと `StockTradingSupportApp/` 配下の `.DS_Store` をリポジトリ管理対象から外すため、`.gitignore` に `.DS_Store`、Xcodeユーザー状態、DerivedData、ビルド生成物を追加
-- SwiftData Repository の取得処理を、可能な範囲で `FetchDescriptor` の predicate / sort に寄せた
-- ウォッチリスト、確認メモ、ユーザー設定条件、条件一致履歴の銘柄コード絞り込みをSwiftData側で行うようにした
-- `RepositoryReadStatusProviding` を追加し、SwiftData Repository の読み取り失敗をViewModelへ伝える土台を作成
-- WatchlistViewModel、InvestmentMemoViewModel、AlertRuleViewModel、AlertEvaluationViewModel で読み取り失敗時のエラーメッセージを保持するようにした
-- WatchlistView、StockDetailView の確認メモ欄、AlertRuleListView、AlertEvaluationView で、未登録状態と読み込み失敗を区別できるようにした
-- delete系は既存Repositoryプロトコルを大きく変えず、Bool失敗時にViewModelで中立的なエラーメッセージを保持するようにした
-- `MockStockDataProvider` に `MockStockDataValue` を追加し、固定モック値として currentPrice、PER、PBR、出来高を StockSnapshot に含められるようにした
-- AlertRuleEvaluator が PER、PBR、出来高も StockSnapshot.value(for:) 経由で評価できることをテストで確認
-- 条件追加画面の選択対象は引き続き currentPrice のみとし、PER、PBR、出来高のUI解放は後続対応にした
-
-前半時点の残課題:
-
-- 条件一致履歴の全削除は既存プロトコルの戻り値を変えていないため、削除失敗理由の詳細表示は後続対応
-- 外部API候補の選定、レスポンス形式、レート制限、欠損値扱いは未実装
-- ManualInputStockDataProvider、ExternalApiStockDataProvider、RealtimeStockDataProvider の具体実装は未着手
-- PER、PBR、出来高をUIで条件対象として選択可能にするかは、手入力値・モック値・外部取得値の扱いを整理してから判断する
-- 日足データや外部指標データの保存方針は未実装
+- 外部株価API候補の選定
+- APIレスポンスを StockSnapshot に変換する `ExternalApiStockDataProvider` の設計
+- レート制限、取得失敗、欠損値、キャッシュ方針の整理
+- 外部データ取得時も、ユーザー設定条件への一致判定として中立的に表示する文言レビュー
+- 日足データや外部指標データの保存方針検討
 
 注意:
 
@@ -415,7 +417,7 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 - 外部APIを追加しても AlertRuleEvaluator の入力は StockSnapshot のままにする
 - リアルタイム性は要件とコストを確認してから検討する
 
-## Step 12: Web/PC版への拡張方針
+## Step 13: Web/PC版への拡張方針
 
 目的:
 
@@ -439,7 +441,7 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 
 ## 次の実装に進む前の注意点
 
-- Step 10 で確認メモ、ユーザー設定条件、条件一致履歴のSwiftData永続化は完了したため、次は Step 11 でモックデータから外部API連携への拡張検討に進む
+- Step 11 で手入力評価データと4指標の条件設定UI解放は完了したため、次は Step 12 で外部API連携の検討に進む
 - 外部データ取得へ進む場合も、StockSnapshot / DataProvider / AlertRuleEvaluator の境界を維持する
 - SwiftDataを使う場合、モデル変更時の移行方針を早めに意識する
 - 日経225銘柄マスタは変更されるため、初期データの更新方法を後で設計する

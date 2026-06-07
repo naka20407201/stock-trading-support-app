@@ -11,17 +11,20 @@ struct StockDetailView: View {
     let watchlistItem: WatchlistItem?
 
     @StateObject private var memoViewModel: InvestmentMemoViewModel
+    @StateObject private var manualInputViewModel: ManualStockSnapshotInputViewModel
     private let alertRuleRepository: any AlertRuleRepository
     private let stockDataProvider: any StockDataProviding
     private let alertMatchHistoryRepository: any AlertMatchHistoryRepository
     @State private var editorPresentation: MemoEditorPresentation?
+    @State private var isManualInputEditorPresented = false
 
     init(
         watchlistItem: WatchlistItem? = nil,
         memoRepository: any InvestmentMemoRepository = InMemoryInvestmentMemoRepository(),
         alertRuleRepository: any AlertRuleRepository = InMemoryAlertRuleRepository(),
         stockDataProvider: any StockDataProviding = MockStockDataProvider(),
-        alertMatchHistoryRepository: any AlertMatchHistoryRepository = InMemoryAlertMatchHistoryRepository()
+        alertMatchHistoryRepository: any AlertMatchHistoryRepository = InMemoryAlertMatchHistoryRepository(),
+        manualStockSnapshotInputRepository: any ManualStockSnapshotInputRepository = InMemoryManualStockSnapshotInputRepository()
     ) {
         self.watchlistItem = watchlistItem
         self.alertRuleRepository = alertRuleRepository
@@ -33,12 +36,19 @@ struct StockDetailView: View {
                 repository: memoRepository
             )
         )
+        _manualInputViewModel = StateObject(
+            wrappedValue: ManualStockSnapshotInputViewModel(
+                stockCode: watchlistItem?.code ?? "",
+                repository: manualStockSnapshotInputRepository
+            )
+        )
     }
 
     var body: some View {
         List {
             if let watchlistItem {
                 stockInformationSection(watchlistItem)
+                manualInputSection
                 memoSection
                 AlertRuleListView(
                     stockCode: watchlistItem.code,
@@ -85,7 +95,22 @@ struct StockDetailView: View {
                 }
             }
         }
-        .onAppear(perform: memoViewModel.refresh)
+        .sheet(isPresented: $isManualInputEditorPresented) {
+            NavigationStack {
+                ManualStockSnapshotInputEditorView(input: manualInputViewModel.input) { currentPriceText, perText, pbrText, volumeText in
+                    try manualInputViewModel.saveInput(
+                        currentPriceText: currentPriceText,
+                        perText: perText,
+                        pbrText: pbrText,
+                        volumeText: volumeText
+                    )
+                }
+            }
+        }
+        .onAppear {
+            memoViewModel.refresh()
+            manualInputViewModel.refresh()
+        }
     }
 
     private func stockInformationSection(_ item: WatchlistItem) -> some View {
@@ -95,6 +120,50 @@ struct StockDetailView: View {
             LabeledContent("市場区分", value: item.market)
             LabeledContent("業種", value: item.industry)
             LabeledContent("日経225標準候補", value: item.isNikkei225 ? "はい" : "いいえ")
+        }
+    }
+
+    @ViewBuilder
+    private var manualInputSection: some View {
+        Section("評価用データ") {
+            if let errorMessage = manualInputViewModel.errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+            }
+
+            if let input = manualInputViewModel.input {
+                LabeledContent("データソース", value: input.sourceName)
+                LabeledContent("更新日時", value: input.updatedAt.formatted(date: .abbreviated, time: .shortened))
+                LabeledContent("現在値", value: formattedManualInputValue(input.currentPrice, metric: .currentPrice))
+                LabeledContent("PER", value: formattedManualInputValue(input.per, metric: .per))
+                LabeledContent("PBR", value: formattedManualInputValue(input.pbr, metric: .pbr))
+                LabeledContent("出来高", value: formattedManualInputValue(input.volume, metric: .volume))
+            } else if manualInputViewModel.errorMessage == nil {
+                ContentUnavailableView(
+                    "入力値は未登録です",
+                    systemImage: "square.and.pencil",
+                    description: Text("未登録の場合は固定モック値を使って評価します。")
+                )
+            }
+
+            Button {
+                isManualInputEditorPresented = true
+            } label: {
+                Label(manualInputViewModel.input == nil ? "評価用データを入力" : "評価用データを編集", systemImage: "square.and.pencil")
+            }
+
+            if manualInputViewModel.input != nil {
+                Button(role: .destructive) {
+                    manualInputViewModel.deleteInput()
+                } label: {
+                    Label("入力値を削除", systemImage: "trash")
+                }
+            }
+
+            Label("未入力の指標は評価できません", systemImage: "info.circle")
+                .foregroundStyle(.secondary)
+            Label("外部API・リアルタイム株価取得は未実装です", systemImage: "wifi.slash")
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -132,6 +201,14 @@ struct StockDetailView: View {
         for id in idsToDelete {
             memoViewModel.deleteMemo(id: id)
         }
+    }
+
+    private func formattedManualInputValue(_ value: Double?, metric: AlertMetric) -> String {
+        guard let value else {
+            return "未入力"
+        }
+
+        return metric.formattedValue(value)
     }
 }
 
@@ -192,7 +269,8 @@ private struct InvestmentMemoRow: View {
             memoRepository: InMemoryInvestmentMemoRepository(),
             alertRuleRepository: InMemoryAlertRuleRepository(),
             stockDataProvider: MockStockDataProvider(),
-            alertMatchHistoryRepository: InMemoryAlertMatchHistoryRepository()
+            alertMatchHistoryRepository: InMemoryAlertMatchHistoryRepository(),
+            manualStockSnapshotInputRepository: InMemoryManualStockSnapshotInputRepository()
         )
     }
 }

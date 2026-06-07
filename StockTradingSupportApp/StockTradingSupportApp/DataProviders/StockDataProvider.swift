@@ -11,6 +11,35 @@ protocol StockDataProviding {
     func snapshot(for stockCode: String) -> StockSnapshot?
 }
 
+struct ManualInputStockDataProvider: StockDataProviding {
+    private let repository: any ManualStockSnapshotInputRepository
+
+    init(repository: any ManualStockSnapshotInputRepository) {
+        self.repository = repository
+    }
+
+    func snapshot(for stockCode: String) -> StockSnapshot? {
+        repository.fetchInput(stockCode: stockCode)?.stockSnapshot
+    }
+}
+
+struct FallbackStockDataProvider: StockDataProviding {
+    private let primaryProvider: any StockDataProviding
+    private let fallbackProvider: any StockDataProviding
+
+    init(
+        primaryProvider: any StockDataProviding,
+        fallbackProvider: any StockDataProviding
+    ) {
+        self.primaryProvider = primaryProvider
+        self.fallbackProvider = fallbackProvider
+    }
+
+    func snapshot(for stockCode: String) -> StockSnapshot? {
+        primaryProvider.snapshot(for: stockCode) ?? fallbackProvider.snapshot(for: stockCode)
+    }
+}
+
 struct MockStockDataValue: Equatable {
     let currentPrice: Double?
     let per: Double?

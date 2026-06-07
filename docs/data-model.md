@@ -149,14 +149,9 @@ Domainモデルの `AlertRule` は通常の Swift 構造体として維持しま
 | createdAt | 作成日時 |
 | updatedAt | 更新日時 |
 
-metricType の候補:
-
-初期版の最優先:
+metricType の初期対応:
 
 - currentPrice
-
-初期版で手入力・モック値として対応余地を残す:
-
 - per
 - pbr
 - volume
@@ -265,6 +260,30 @@ StockSnapshot は、条件判定に渡す評価用データです。SwiftDataで
 - 欠損値がある場合、Evaluator は推測せず判定不能として扱う
 - UI表示用データやAPIレスポンスを直接条件判定に渡さない
 
+## ManualStockSnapshotInput
+
+ManualStockSnapshotInput は、銘柄ごとにユーザーが手入力した評価用データです。条件判定前に StockSnapshot へ変換し、AlertRuleEvaluator へ渡します。
+
+| 項目 | 内容 |
+| --- | --- |
+| id | 手入力評価データID |
+| stockCode | 銘柄コード |
+| currentPrice | 現在値。任意入力 |
+| per | PER。任意入力 |
+| pbr | PBR。任意入力 |
+| volume | 出来高。任意入力 |
+| updatedAt | 入力または更新日時 |
+| sourceName | データソース名。初期値は「手入力評価データ」 |
+
+設計メモ:
+
+- すべての指標は任意入力とし、空欄は nil として扱う
+- nil の指標を条件評価に使った場合、AlertRuleEvaluator は判定不能を返す
+- 入力値は0以上の数値に制限する
+- DomainモデルとSwiftData保存用Recordモデルは分ける
+- Step 11 では `ManualStockSnapshotInputRecord` と `SwiftDataManualStockSnapshotInputRepository` を追加し、手入力評価データをSwiftDataへ保存する
+- View は SwiftData の `ModelContext` を直接操作せず、`ManualStockSnapshotInputRepository` と `ManualStockSnapshotInputViewModel` 経由で保存・取得・削除を行う
+
 ## DataProvider相当の境界
 
 DataProvider 相当の境界は、各データ取得元から StockSnapshot を生成する責務を持ちます。これは永続化モデルではなく、設計上の境界です。
@@ -280,13 +299,16 @@ Step 8 の実装:
 - `MockStockDataProvider`
 - 固定モック株価の `sourceName` は「固定モック株価」
 - 代表コードに対して `currentPrice`、PER、PBR、出来高を返せる構造を持つ
-- UIで選択できる対象指標は現時点では `currentPrice` のみとし、PER、PBR、出来高の選択解放は後続対応とする
 - 未定義銘柄コードでは Snapshot を返さず、評価結果は判定不能として扱う
 
-Step 11前半の整理:
+Step 11 の実装:
 
 - `MockStockDataValue` により、固定モック値として `currentPrice`、`per`、`pbr`、`volume` を保持できる
 - 既存の `mockValues: [String: Double]` 形式も currentPrice 用の簡易指定として利用できる
+- `ManualInputStockDataProvider` は、`ManualStockSnapshotInputRepository` から取得した手入力評価データを StockSnapshot へ変換する
+- `FallbackStockDataProvider` は、手入力評価データがある場合は手入力値を優先し、未登録の場合は固定モック値を返す
+- 条件設定画面では `currentPrice`、`per`、`pbr`、`volume` を選択できる
+- 選択した指標が StockSnapshot 内で nil の場合は判定不能として扱う
 - AlertRuleEvaluator は引き続き StockSnapshot の `value(for:)` を通して対象指標値を取得し、DataProviderの種類には依存しない
 - 外部API、手入力、リアルタイム取得を追加する場合も、まず StockSnapshot に変換してから評価する
 
@@ -334,9 +356,17 @@ Step 10 の実装:
 
 Step 10 時点で、ウォッチリスト、確認メモ、ユーザー設定条件、条件一致履歴はSwiftData Repositoryへ差し替え済みです。`InMemory...Repository` はPreviewとテスト用に維持します。
 
-Step 11前半では、SwiftData Repository の取得処理を `FetchDescriptor` の predicate / sort に寄せ、銘柄コードによる絞り込みや日時順の並び替えをSwiftData側で行うようにします。読み取り失敗時は `RepositoryReadStatusProviding` を通してViewModelへ中立的なエラーメッセージを渡し、画面では未登録状態と読み込み失敗を区別します。
+永続化品質改善では、SwiftData Repository の取得処理を `FetchDescriptor` の predicate / sort に寄せ、銘柄コードによる絞り込みや日時順の並び替えをSwiftData側で行うようにします。読み取り失敗時は `RepositoryReadStatusProviding` を通してViewModelへ中立的なエラーメッセージを渡し、画面では未登録状態と読み込み失敗を区別します。
 
 delete系は既存プロトコルの戻り値を大きく変えず、Boolの失敗をViewModel側でエラーメッセージとして保持します。条件一致履歴の全削除は現時点では戻り値を持たないため、失敗理由の詳細表示や例外伝播は後続の設計課題として残します。
+
+Step 11 の実装:
+
+- `ManualStockSnapshotInputRecord`
+- `SwiftDataManualStockSnapshotInputRepository`
+- `ManualStockSnapshotInputRecord` と `ManualStockSnapshotInput` の相互変換
+
+Step 11 時点で、手入力評価データもSwiftData Repositoryへ保存します。現在値、PER、PBR、出来高はいずれも任意入力で、未入力の指標は判定不能として扱います。
 
 関連の考え方:
 

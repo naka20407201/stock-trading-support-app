@@ -16,7 +16,8 @@ struct StockTradingSupportAppApp: App {
             WatchlistItemRecord.self,
             InvestmentMemoRecord.self,
             AlertRuleRecord.self,
-            AlertMatchHistoryRecord.self
+            AlertMatchHistoryRecord.self,
+            ManualStockSnapshotInputRecord.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -29,6 +30,16 @@ struct StockTradingSupportAppApp: App {
 
     var body: some Scene {
         WindowGroup {
+            let manualStockSnapshotInputRepository = SwiftDataManualStockSnapshotInputRepository(
+                modelContainer: sharedModelContainer
+            )
+            let stockDataProvider = FallbackStockDataProvider(
+                primaryProvider: ManualInputStockDataProvider(
+                    repository: manualStockSnapshotInputRepository
+                ),
+                fallbackProvider: MockStockDataProvider()
+            )
+
             RootView(
                 watchlistViewModel: WatchlistViewModel(
                     repository: SwiftDataWatchlistRepository(
@@ -41,9 +52,11 @@ struct StockTradingSupportAppApp: App {
                 alertRuleRepository: SwiftDataAlertRuleRepository(
                     modelContainer: sharedModelContainer
                 ),
+                stockDataProvider: stockDataProvider,
                 alertMatchHistoryRepository: SwiftDataAlertMatchHistoryRepository(
                     modelContainer: sharedModelContainer
-                )
+                ),
+                manualStockSnapshotInputRepository: manualStockSnapshotInputRepository
             )
         }
         .modelContainer(sharedModelContainer)

@@ -277,3 +277,67 @@ extension AlertMatchHistory {
         )
     }
 }
+
+@Model
+final class ManualStockSnapshotInputRecord {
+    var id: UUID
+    var stockCode: String
+    var currentPrice: Double?
+    var per: Double?
+    var pbr: Double?
+    var volume: Double?
+    var updatedAt: Date
+    var sourceName: String
+
+    init(
+        id: UUID = UUID(),
+        stockCode: String,
+        currentPrice: Double? = nil,
+        per: Double? = nil,
+        pbr: Double? = nil,
+        volume: Double? = nil,
+        updatedAt: Date = Date(),
+        sourceName: String = "手入力評価データ"
+    ) {
+        self.id = id
+        self.stockCode = stockCode
+        self.currentPrice = currentPrice
+        self.per = per
+        self.pbr = pbr
+        self.volume = volume
+        self.updatedAt = updatedAt
+        self.sourceName = sourceName
+    }
+
+    convenience init(input: ManualStockSnapshotInput) {
+        self.init(
+            id: input.id,
+            stockCode: input.stockCode,
+            currentPrice: input.currentPrice,
+            per: input.per,
+            pbr: input.pbr,
+            volume: input.volume,
+            updatedAt: input.updatedAt,
+            sourceName: input.sourceName
+        )
+    }
+
+    var domainModel: ManualStockSnapshotInput {
+        ManualStockSnapshotInput(record: self)
+    }
+}
+
+extension ManualStockSnapshotInput {
+    init(record: ManualStockSnapshotInputRecord) {
+        self.init(
+            id: record.id,
+            stockCode: record.stockCode,
+            currentPrice: record.currentPrice,
+            per: record.per,
+            pbr: record.pbr,
+            volume: record.volume,
+            updatedAt: record.updatedAt,
+            sourceName: record.sourceName
+        )
+    }
+}
