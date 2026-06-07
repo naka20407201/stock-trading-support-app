@@ -42,21 +42,29 @@ struct AlertEvaluationView: View {
             Label("外部API・リアルタイム株価取得は未実装です", systemImage: "wifi.slash")
                 .foregroundStyle(.secondary)
 
-            if let snapshot = viewModel.snapshot {
+            if !viewModel.hasEvaluated {
+                Text("条件を評価すると、固定モック値で結果を表示します。")
+                    .foregroundStyle(.secondary)
+            } else if let snapshot = viewModel.snapshot {
                 LabeledContent("データソース", value: snapshot.sourceName)
                 LabeledContent("取得時刻", value: snapshot.capturedAt.formatted(date: .abbreviated, time: .shortened))
             } else {
                 ContentUnavailableView(
                     "評価用データがありません",
                     systemImage: "tray",
-                    description: Text("固定モック株価が未登録の銘柄です。")
+                    description: Text("この銘柄の固定モック株価は未登録です。")
                 )
             }
 
-            if viewModel.evaluations.isEmpty {
-                Text("条件を評価すると結果を表示します。")
+            if let errorMessage = viewModel.errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+            }
+
+            if viewModel.evaluations.isEmpty && viewModel.hasEvaluated {
+                Text("評価対象のユーザー設定条件が未登録です。")
                     .foregroundStyle(.secondary)
-            } else {
+            } else if !viewModel.evaluations.isEmpty {
                 ForEach(viewModel.evaluations) { item in
                     AlertEvaluationRow(item: item)
                 }

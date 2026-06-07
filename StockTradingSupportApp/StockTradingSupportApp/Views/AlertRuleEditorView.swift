@@ -66,8 +66,8 @@ struct AlertRuleEditorView: View {
             }
 
             Section("補足") {
-                Label("このStepでは条件の登録・編集のみ行います", systemImage: "info.circle")
-                Label("外部API・リアルタイム判定は未実装です", systemImage: "wifi.slash")
+                Label("初期版では現在値のみ設定できます。PER、PBR、出来高は後続対応予定です。", systemImage: "info.circle")
+                Label("外部API・リアルタイム株価取得は未実装です", systemImage: "wifi.slash")
             }
         }
         .navigationTitle(navigationTitle)

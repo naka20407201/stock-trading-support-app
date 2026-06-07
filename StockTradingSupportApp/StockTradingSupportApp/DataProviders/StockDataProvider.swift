@@ -13,12 +13,12 @@ protocol StockDataProviding {
 
 struct MockStockDataProvider: StockDataProviding {
     private let sourceName: String
-    private let capturedAt: Date
+    private let fixedCapturedAt: Date?
     private let mockValues: [String: Double]
 
     init(
         sourceName: String = "固定モック株価",
-        capturedAt: Date = Date(),
+        capturedAt: Date? = nil,
         mockValues: [String: Double] = [
             "7203": 3200,
             "6758": 14500,
@@ -28,7 +28,7 @@ struct MockStockDataProvider: StockDataProviding {
         ]
     ) {
         self.sourceName = sourceName
-        self.capturedAt = capturedAt
+        self.fixedCapturedAt = capturedAt
         self.mockValues = mockValues
     }
 
@@ -40,7 +40,7 @@ struct MockStockDataProvider: StockDataProviding {
         return StockSnapshot(
             stockCode: stockCode,
             currentPrice: currentPrice,
-            capturedAt: capturedAt,
+            capturedAt: fixedCapturedAt ?? Date(),
             sourceName: sourceName
         )
     }

@@ -39,6 +39,8 @@ final class AlertEvaluationViewModel: ObservableObject {
     @Published private(set) var snapshot: StockSnapshot?
     @Published private(set) var evaluations: [AlertRuleEvaluationDisplayItem] = []
     @Published private(set) var histories: [AlertMatchHistory] = []
+    @Published private(set) var hasEvaluated = false
+    @Published private(set) var errorMessage: String?
 
     private let alertRuleRepository: any AlertRuleRepository
     private let stockDataProvider: any StockDataProviding
@@ -61,11 +63,13 @@ final class AlertEvaluationViewModel: ObservableObject {
     }
 
     func refresh() {
-        snapshot = stockDataProvider.snapshot(for: stockCode)
         histories = historyRepository.fetchHistories(stockCode: stockCode)
     }
 
     func evaluate() {
+        hasEvaluated = true
+        errorMessage = nil
+
         let rules = alertRuleRepository.fetchRules(stockCode: stockCode)
         let currentSnapshot = stockDataProvider.snapshot(for: stockCode)
         snapshot = currentSnapshot
@@ -98,6 +102,7 @@ final class AlertEvaluationViewModel: ObservableObject {
     }
 
     func clearHistories() {
+        errorMessage = nil
         historyRepository.deleteAll(stockCode: stockCode)
         histories = []
     }
@@ -128,6 +133,10 @@ final class AlertEvaluationViewModel: ObservableObject {
             sourceName: snapshot.sourceName
         )
 
-        _ = try? historyRepository.add(history)
+        do {
+            _ = try historyRepository.add(history)
+        } catch {
+            errorMessage = "条件一致履歴を保存できませんでした。"
+        }
     }
 }

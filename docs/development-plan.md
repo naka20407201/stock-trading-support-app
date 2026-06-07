@@ -303,23 +303,26 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 - このStepでは通知送信は実装しない
 - 固定モック株価はローカル開発用の値であり、実際の株価や最新データを保証しない
 
-## Step 9: SwiftData永続化
+## Step 9: SwiftData永続化（ウォッチリスト完了）
 
 目的:
 
 - Repository境界を維持したまま、InMemory実装からSwiftData永続化へ段階的に差し替える
 
-作業候補:
+完了内容:
 
-- ウォッチリスト永続化
-- 確認メモ永続化
-- ユーザー設定条件永続化
-- 条件一致履歴永続化
-- Repository境界を維持したまま InMemory から SwiftData へ差し替え
-- 初回起動時のサンプルデータ投入方針
-- 日経225モック銘柄マスタからSwiftDataモデルへ取り込む方針
-- マイグレーションしやすいモデル設計
-- 既存のViewModelとViewを大きく変えずに永続化層だけを交換できるか確認
+- SwiftData用Recordモデルとして `WatchlistItemRecord` を追加済み
+- 後続永続化に備えて `InvestmentMemoRecord`、`AlertRuleRecord`、`AlertMatchHistoryRecord` を追加済み
+- `WatchlistItem` と `WatchlistItemRecord` の相互変換を追加済み
+- `SwiftDataWatchlistRepository` を追加済み
+- `WatchlistRepository` プロトコルを維持したまま、アプリ本体のウォッチリストをSwiftDataへ差し替え済み
+- View は SwiftData の `ModelContext` を直接操作せず、Repository / ViewModel 経由の構成を維持済み
+- `InMemoryWatchlistRepository` はPreviewとテスト用に維持済み
+- `AlertEvaluationViewModel` の条件一致履歴保存失敗時にエラーメッセージを保持するよう修正済み
+- `AlertEvaluationView` で評価前と固定モック株価未登録時の表示を分離済み
+- `AlertRuleEditorView` に、初期版では現在値のみ設定できる旨を追記済み
+- `MockStockDataProvider` は通常利用時に `snapshot(for:)` 実行時刻を使い、テストでは固定時刻を注入できる構成に修正済み
+- SwiftData Repository、Record変換、履歴保存失敗、モックSnapshot時刻方針のテストを追加済み
 
 注意:
 
@@ -327,7 +330,38 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 - 条件一致履歴は条件変更後も意味が変わらないように、条件内容のスナップショットを保存する
 - 外部API、リアルタイム株価、通知送信、自動売買、証券口座連携、板情報取得はこのStepでも実装しない
 
-## Step 10: モックデータから外部API連携への拡張
+残課題:
+
+- 確認メモはまだ `InMemoryInvestmentMemoRepository` で扱う
+- ユーザー設定条件はまだ `InMemoryAlertRuleRepository` で扱う
+- 条件一致履歴はまだ `InMemoryAlertMatchHistoryRepository` で扱う
+- 日経225モック銘柄マスタ自体はローカルJSONのままで、SwiftDataへの取り込みは未実装
+- 初回起動時のサンプルデータ投入方針は未実装
+
+## Step 10: SwiftData永続化の対象拡張
+
+目的:
+
+- ウォッチリスト以外のユーザーデータも、Repository境界を維持したままSwiftDataへ差し替える
+
+作業候補:
+
+- 確認メモ永続化
+- ユーザー設定条件永続化
+- 条件一致履歴永続化
+- 既存の `InvestmentMemoRepository`、`AlertRuleRepository`、`AlertMatchHistoryRepository` のSwiftData実装
+- 条件一致履歴のスナップショット保存方針の確認
+- 初回起動時のサンプルデータ投入方針
+- 日経225モック銘柄マスタからSwiftDataモデルへ取り込む方針
+- マイグレーションしやすいモデル設計
+- 既存のViewModelとViewを大きく変えずに永続化層だけを交換できるか確認
+
+注意:
+
+- 外部API、リアルタイム株価、通知送信、自動売買、証券口座連携、板情報取得はこのStepでも実装しない
+- View が SwiftData の `ModelContext` を直接操作しない構成を維持する
+
+## Step 11: モックデータから外部API連携への拡張
 
 目的:
 
@@ -348,7 +382,7 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 - 外部APIを追加しても AlertRuleEvaluator の入力は StockSnapshot のままにする
 - リアルタイム性は要件とコストを確認してから検討する
 
-## Step 11: Web/PC版への拡張方針
+## Step 12: Web/PC版への拡張方針
 
 目的:
 
@@ -372,8 +406,8 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 
 ## 次の実装に進む前の注意点
 
-- Step 8 までのInMemory実装と固定モック評価を前提に、次は Step 9 のSwiftData永続化に進む
-- Repository境界を維持したまま、保存実装だけを差し替えられるか確認する
+- Step 9 でウォッチリストのSwiftData永続化は完了したため、次は Step 10 で確認メモ、ユーザー設定条件、条件一致履歴のSwiftData化に進む
+- Repository境界を維持したまま、残りの保存実装だけを差し替えられるか確認する
 - SwiftDataを使う場合、モデル変更時の移行方針を早めに意識する
 - 日経225銘柄マスタは変更されるため、初期データの更新方法を後で設計する
 - UI文言は売買推奨に見えないようにレビューする

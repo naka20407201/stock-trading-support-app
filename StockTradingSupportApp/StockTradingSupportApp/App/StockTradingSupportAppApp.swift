@@ -12,7 +12,11 @@ import SwiftUI
 struct StockTradingSupportAppApp: App {
     private let sharedModelContainer: ModelContainer = {
         let schema = Schema([
-            PersistenceSchemaPlaceholder.self
+            PersistenceSchemaPlaceholder.self,
+            WatchlistItemRecord.self,
+            InvestmentMemoRecord.self,
+            AlertRuleRecord.self,
+            AlertMatchHistoryRecord.self
         ])
         let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
@@ -25,7 +29,13 @@ struct StockTradingSupportAppApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            RootView(
+                watchlistViewModel: WatchlistViewModel(
+                    repository: SwiftDataWatchlistRepository(
+                        modelContainer: sharedModelContainer
+                    )
+                )
+            )
         }
         .modelContainer(sharedModelContainer)
     }

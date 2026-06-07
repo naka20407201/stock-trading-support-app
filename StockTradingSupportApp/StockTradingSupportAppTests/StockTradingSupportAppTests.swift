@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import SwiftData
 import Testing
 @testable import StockTradingSupportApp
 
@@ -83,6 +84,63 @@ struct StockTradingSupportAppTests {
         let item = makeWatchlistItem(code: "7203", name: "トヨタ自動車")
         let repository = InMemoryWatchlistRepository(initialItems: [item])
 
+        let didDelete = repository.delete(id: item.id)
+
+        #expect(didDelete)
+        #expect(repository.fetchItems().isEmpty)
+        #expect(!repository.contains(code: "7203"))
+    }
+
+    @MainActor
+    @Test func watchlistItemRecordConvertsToDomainModel() {
+        let item = makeWatchlistItem(code: "7203", name: "トヨタ自動車")
+        let record = WatchlistItemRecord(item: item)
+
+        #expect(record.id == item.id)
+        #expect(record.code == item.code)
+        #expect(record.name == item.name)
+        #expect(record.domainModel == item)
+        #expect(WatchlistItem(record: record) == item)
+    }
+
+    @MainActor
+    @Test func swiftDataWatchlistRepositoryAddsAndFetchesItem() throws {
+        let repository = try makeSwiftDataWatchlistRepository()
+        let item = makeWatchlistItem(code: "6758", name: "ソニーグループ")
+
+        try repository.add(item)
+        let fetchedItems = repository.fetchItems()
+
+        #expect(fetchedItems == [item])
+        #expect(repository.contains(code: "6758"))
+    }
+
+    @MainActor
+    @Test func swiftDataWatchlistRepositoryPreventsDuplicateCode() throws {
+        let repository = try makeSwiftDataWatchlistRepository()
+        let item = makeWatchlistItem(code: "9432", name: "日本電信電話")
+        let duplicate = makeWatchlistItem(code: "9432", name: "日本電信電話")
+
+        try repository.add(item)
+
+        do {
+            try repository.add(duplicate)
+            Issue.record("SwiftDataRepositoryでも同じ銘柄コードの重複追加は失敗する必要があります。")
+        } catch let error as WatchlistRepositoryError {
+            #expect(error == .duplicateCode("9432"))
+        } catch {
+            Issue.record("想定外のエラーです: \(error)")
+        }
+
+        #expect(repository.fetchItems() == [item])
+    }
+
+    @MainActor
+    @Test func swiftDataWatchlistRepositoryDeletesItem() throws {
+        let repository = try makeSwiftDataWatchlistRepository()
+        let item = makeWatchlistItem(code: "7203", name: "トヨタ自動車")
+
+        try repository.add(item)
         let didDelete = repository.delete(id: item.id)
 
         #expect(didDelete)
@@ -605,6 +663,21 @@ struct StockTradingSupportAppTests {
         #expect(snapshot?.sourceName == "固定モック株価")
     }
 
+    @Test func mockStockDataProviderUsesRequestTimeWhenCapturedAtIsNotInjected() {
+        let provider = MockStockDataProvider()
+        let before = Date()
+        let snapshot = provider.snapshot(for: "7203")
+        let after = Date()
+
+        guard let capturedAt = snapshot?.capturedAt else {
+            Issue.record("代表銘柄のSnapshotを取得できる必要があります。")
+            return
+        }
+
+        #expect(capturedAt >= before)
+        #expect(capturedAt <= after)
+    }
+
     @Test func mockStockDataProviderReturnsNilForUndefinedCode() {
         let provider = MockStockDataProvider()
 
@@ -721,6 +794,30 @@ struct StockTradingSupportAppTests {
         #expect(viewModel.histories.count == 1)
     }
 
+    @MainActor
+    @Test func alertEvaluationViewModelReportsHistorySaveFailure() {
+        let rule = makeAlertRule(
+            stockCode: "7203",
+            name: "現在値の確認",
+            comparisonOperator: .greaterThanOrEqual,
+            thresholdValue: 3000
+        )
+        let viewModel = AlertEvaluationViewModel(
+            stockCode: "7203",
+            alertRuleRepository: InMemoryAlertRuleRepository(initialRules: [rule]),
+            stockDataProvider: MockStockDataProvider(
+                capturedAt: Date(timeIntervalSince1970: 1000),
+                mockValues: ["7203": 3200]
+            ),
+            historyRepository: FailingAlertMatchHistoryRepository()
+        )
+
+        viewModel.evaluate()
+
+        #expect(viewModel.errorMessage == "条件一致履歴を保存できませんでした。")
+        #expect(viewModel.evaluations.first?.result == .matched(observedValue: 3200))
+    }
+
     private func makeWatchlistItem(code: String, name: String) -> WatchlistItem {
         WatchlistItem(
             id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-\(code)\(code)\(code)")!,
@@ -821,4 +918,40 @@ struct StockTradingSupportAppTests {
         )
     }
 
+    @MainActor
+    private func makeSwiftDataWatchlistRepository() throws -> SwiftDataWatchlistRepository {
+        let schema = Schema([
+            PersistenceSchemaPlaceholder.self,
+            WatchlistItemRecord.self,
+            InvestmentMemoRecord.self,
+            AlertRuleRecord.self,
+            AlertMatchHistoryRecord.self
+        ])
+        let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        let container = try ModelContainer(for: schema, configurations: [configuration])
+        return SwiftDataWatchlistRepository(modelContainer: container)
+    }
+
+}
+
+private enum FailingAlertMatchHistoryRepositoryError: Error {
+    case saveFailed
+}
+
+private final class FailingAlertMatchHistoryRepository: AlertMatchHistoryRepository {
+    func fetchHistories(stockCode: String) -> [AlertMatchHistory] {
+        []
+    }
+
+    @discardableResult
+    func add(_ history: AlertMatchHistory) throws -> AlertMatchHistory {
+        throw FailingAlertMatchHistoryRepositoryError.saveFailed
+    }
+
+    @discardableResult
+    func delete(id: AlertMatchHistory.ID) -> Bool {
+        false
+    }
+
+    func deleteAll(stockCode: String) {}
 }

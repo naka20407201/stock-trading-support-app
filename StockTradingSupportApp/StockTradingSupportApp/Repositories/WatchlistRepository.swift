@@ -16,6 +16,7 @@ protocol WatchlistRepository: AnyObject {
 
 enum WatchlistRepositoryError: Error, Equatable {
     case duplicateCode(String)
+    case persistenceFailure(String)
 }
 
 final class InMemoryWatchlistRepository: WatchlistRepository {

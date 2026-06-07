@@ -128,6 +128,8 @@ Step 7 時点では、RootView が `InMemoryAlertRuleRepository` を保持し、
 
 Step 8 時点では、RootView が `MockStockDataProvider` と `InMemoryAlertMatchHistoryRepository` も保持し、WatchlistView 経由で StockDetailView に渡します。StockDetailView は `AlertEvaluationView` を組み込み、`AlertEvaluationViewModel` が条件一覧取得、StockSnapshot取得、条件評価、条件一致履歴作成をまとめます。条件評価は固定モック株価で行い、通知送信はまだ行いません。
 
+Step 9 時点では、App entry が SwiftData の `ModelContainer` を作成し、`SwiftDataWatchlistRepository` を `WatchlistViewModel` に注入します。RootView 以降のViewは引き続き `WatchlistViewModel` と `WatchlistRepository` 境界だけを利用し、SwiftData の `ModelContext` を直接操作しません。確認メモ、ユーザー設定条件、条件一致履歴はまだInMemory Repositoryを利用し、後続Stepで同じ境界のままSwiftData実装へ差し替えます。
+
 ## 株価・指標値取得の抽象化方針
 
 条件判定ロジックは、手入力画面、モックデータ、外部API、リアルタイムデータを直接参照しません。データ取得元を DataProvider 相当の境界に閉じ込め、AlertRuleEvaluator は StockSnapshot だけを入力として扱います。
