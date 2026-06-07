@@ -176,36 +176,46 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 - 外部API、リアルタイム株価取得、自動売買、証券口座連携、板情報取得は実装しない
 - InMemoryWatchlistRepository の状態はアプリ起動中の確認用であり、永続化は後続対応にする
 
-## Step 6: 銘柄詳細・投資メモ画面
+## Step 6: 銘柄詳細・投資メモ画面 完了
 
 目的:
 
 - 銘柄ごとのメモを管理できるようにする
 
-作業候補:
+完了内容:
 
-- 銘柄詳細画面
-- InvestmentMemo モデル作成
-- メモ編集画面
-- 買いたい理由、売る条件、損切り条件、目標株価、注意点、決算前メモ、自由メモの入力
-- 保存・更新処理
-- メモ削除
-- ウォッチリスト銘柄とメモの紐づけ
-- 将来 SwiftData 永続化へ差し替えやすい構成維持
+- `InvestmentMemo` を通常の Swift 構造体として作成済み
+- `InvestmentMemo` は id、stockCode、title、body、createdAt、updatedAt を保持する
+- stockCode によって WatchlistItem と確認メモを紐づける
+- `InvestmentMemoRepository` プロトコルを作成済み
+- `InMemoryInvestmentMemoRepository` を作成済み
+- 指定銘柄コードのメモ一覧取得、メモ追加、メモ更新、メモ削除の操作を用意済み
+- `InvestmentMemoViewModel` を作成済み
+- 確認メモのタイトル空不可、本文空可の入力チェックを追加済み
+- StockDetailView で銘柄情報と確認メモ一覧を表示済み
+- 確認メモがない場合の空状態表示を用意済み
+- `InvestmentMemoEditorView` を作成し、メモ追加と編集の両方で利用する構成にした
+- メモの追加、編集、削除を画面上から実行できるようにした
+- RootView 側で `InMemoryInvestmentMemoRepository` を保持し、WatchlistView 経由で StockDetailView に渡す構成にした
+- 任意銘柄コードの入力チェックを半角数字4桁のみ許可する形に厳密化済み
+- Repository、ViewModel、入力チェックのテストを追加済み
+- 将来 SwiftData 永続化へ差し替えやすいように、View は InMemory 実装を直接操作しない
 
 注意:
 
 - メモはユーザー自身が入力する判断材料として扱う
 - アプリ側がメモを解釈して助言しない
 - 外部API、リアルタイム株価取得、自動売買、証券口座連携、板情報取得はこのStepでも実装しない
+- InMemoryInvestmentMemoRepository の状態はアプリ起動中の確認用であり、永続化は後続対応にする
 
-## Step 7: アラート条件設定画面
+## Step 7: アラート条件モデル・条件設定画面
 
 目的:
 
 - 銘柄ごとに AlertRule を設定できるようにする
 - 初期版では、1つの AlertRule は1つの条件式だけを持つ
 - 1つの銘柄には複数の AlertRule を登録できる
+- まだリアルタイム判定は行わず、まずは条件を登録できるところまで実装する
 
 作業候補:
 
@@ -214,6 +224,7 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 - 条件作成・編集画面
 - 対象指標、比較演算子、しきい値の入力
 - 有効・無効切り替え
+- 条件一覧表示
 - 基本比較演算子 greaterThan、greaterThanOrEqual、lessThan、lessThanOrEqual、equal、notEqual の選択
 
 初期版で後続対応にする比較演算子:

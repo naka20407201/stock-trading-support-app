@@ -175,6 +175,117 @@ struct StockTradingSupportAppTests {
         #expect(errors.contains(.duplicateCode))
     }
 
+    @Test func customStockInputValidatorAllowsOnlyHalfWidthFourDigitCode() {
+        let validator = CustomStockInputValidator()
+        let validInput = CustomStockInput(
+            code: "1234",
+            name: "テスト銘柄",
+            market: "TSE Prime",
+            industry: "情報・通信業"
+        )
+
+        #expect(validator.validate(validInput) { _ in false }.isEmpty)
+
+        for code in ["123", "12345", "12A4", "１２３４"] {
+            let input = CustomStockInput(
+                code: code,
+                name: "テスト銘柄",
+                market: "TSE Prime",
+                industry: "情報・通信業"
+            )
+
+            let errors = validator.validate(input) { _ in false }
+
+            #expect(errors.contains(.invalidCode))
+        }
+    }
+
+    @Test func inMemoryInvestmentMemoRepositoryAddsMemo() throws {
+        let repository = InMemoryInvestmentMemoRepository()
+        let memo = makeInvestmentMemo(stockCode: "7203", title: "決算前の確認")
+
+        try repository.add(memo)
+        let fetchedMemos = repository.fetchMemos(stockCode: "7203")
+
+        #expect(fetchedMemos == [memo])
+    }
+
+    @Test func inMemoryInvestmentMemoRepositoryFetchesOnlySpecifiedStockCode() throws {
+        let targetMemo = makeInvestmentMemo(
+            id: UUID(uuidString: "BBBBBBBB-BBBB-BBBB-BBBB-BBBBBBBBBBBB")!,
+            stockCode: "7203",
+            title: "トヨタ自動車の確認"
+        )
+        let otherMemo = makeInvestmentMemo(
+            id: UUID(uuidString: "CCCCCCCC-CCCC-CCCC-CCCC-CCCCCCCCCCCC")!,
+            stockCode: "6758",
+            title: "ソニーグループの確認"
+        )
+        let repository = InMemoryInvestmentMemoRepository(initialMemos: [targetMemo, otherMemo])
+
+        let fetchedMemos = repository.fetchMemos(stockCode: "7203")
+
+        #expect(fetchedMemos == [targetMemo])
+    }
+
+    @Test func inMemoryInvestmentMemoRepositoryUpdatesMemo() throws {
+        let memo = makeInvestmentMemo(stockCode: "7203", title: "確認メモ")
+        let repository = InMemoryInvestmentMemoRepository(initialMemos: [memo])
+        let updatedMemo = memo.updating(
+            title: "確認メモを更新",
+            body: "入力内容を更新しました。",
+            updatedAt: Date(timeIntervalSince1970: 100)
+        )
+
+        try repository.update(updatedMemo)
+        let fetchedMemo = repository.fetchMemos(stockCode: "7203").first
+
+        #expect(fetchedMemo == updatedMemo)
+    }
+
+    @Test func inMemoryInvestmentMemoRepositoryDeletesMemo() {
+        let memo = makeInvestmentMemo(stockCode: "7203", title: "確認メモ")
+        let repository = InMemoryInvestmentMemoRepository(initialMemos: [memo])
+
+        let didDelete = repository.delete(id: memo.id)
+
+        #expect(didDelete)
+        #expect(repository.fetchMemos(stockCode: "7203").isEmpty)
+    }
+
+    @MainActor
+    @Test func investmentMemoViewModelAddsMemo() throws {
+        let viewModel = InvestmentMemoViewModel(
+            stockCode: "7203",
+            repository: InMemoryInvestmentMemoRepository()
+        )
+
+        try viewModel.addMemo(title: "確認メモ", body: "気になった点を記録しました。")
+
+        #expect(viewModel.memos.count == 1)
+        #expect(viewModel.memos.first?.stockCode == "7203")
+        #expect(viewModel.memos.first?.title == "確認メモ")
+    }
+
+    @MainActor
+    @Test func investmentMemoViewModelRejectsEmptyTitle() throws {
+        let viewModel = InvestmentMemoViewModel(
+            stockCode: "7203",
+            repository: InMemoryInvestmentMemoRepository()
+        )
+
+        do {
+            try viewModel.addMemo(title: " ", body: "本文だけの入力です。")
+            Issue.record("タイトルが空の確認メモは追加しない必要があります。")
+        } catch let error as InvestmentMemoValidationError {
+            #expect(error == .emptyTitle)
+        } catch {
+            Issue.record("想定外のエラーです: \(error)")
+        }
+
+        #expect(viewModel.memos.isEmpty)
+    }
+
     private func makeWatchlistItem(code: String, name: String) -> WatchlistItem {
         WatchlistItem(
             id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-\(code)\(code)\(code)")!,
@@ -184,6 +295,24 @@ struct StockTradingSupportAppTests {
             industry: "テスト業種",
             isNikkei225: true,
             createdAt: Date(timeIntervalSince1970: 0)
+        )
+    }
+
+    private func makeInvestmentMemo(
+        id: UUID = UUID(uuidString: "AAAAAAAA-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!,
+        stockCode: String,
+        title: String,
+        body: String = "確認した内容です。",
+        createdAt: Date = Date(timeIntervalSince1970: 0),
+        updatedAt: Date = Date(timeIntervalSince1970: 0)
+    ) -> InvestmentMemo {
+        InvestmentMemo(
+            id: id,
+            stockCode: stockCode,
+            title: title,
+            body: body,
+            createdAt: createdAt,
+            updatedAt: updatedAt
         )
     }
 

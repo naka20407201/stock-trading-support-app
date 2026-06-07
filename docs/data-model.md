@@ -108,25 +108,24 @@ Step 4 の初期実装では、SwiftData永続化モデルではなく通常のS
 
 InvestmentMemo は、銘柄ごとのユーザー入力メモを保持します。
 
+Step 6 時点では、SwiftData 永続化モデルではなく通常の Swift 構造体として実装します。確認メモは `stockCode` によって WatchlistItem と紐づけ、Repository 境界を通して取得、追加、更新、削除します。
+
 | 項目 | 内容 |
 | --- | --- |
 | id | ローカルID |
-| watchlistItemId | 対象ウォッチリスト項目ID |
-| buyReason | 買いたい理由 |
-| sellCondition | 売る条件 |
-| stopLossCondition | 損切り条件 |
-| targetPrice | 目標株価 |
-| stopLossPrice | 損切りライン |
-| cautionNote | 注意点 |
-| preEarningsMemo | 決算前メモ |
-| freeMemo | 自由メモ |
+| stockCode | 対象銘柄コード |
+| title | メモタイトル |
+| body | メモ本文 |
 | createdAt | 作成日時 |
 | updatedAt | 更新日時 |
 
 設計メモ:
 
 - メモはユーザー自身の判断材料として扱う
-- 目標株価や損切りラインは、AlertRule のしきい値として参照できる可能性がある
+- Step 6 ではタイトル空不可、本文空可とする
+- `InvestmentMemoRepository` / `InMemoryInvestmentMemoRepository` を用意し、将来 SwiftData やバックエンドへ差し替えやすい保存境界を先に作る
+- 将来、メモ種別、表示順、添付情報、watchlistItemId、serverId、deletedAt などを追加できる余地を残す
+- 将来、ユーザーが入力した数値メモを AlertRule のしきい値として参照する場合も、アプリ側は売買判断として解釈しない
 - アプリはメモ内容を売買推奨として解釈・表示しない
 
 ## AlertRule

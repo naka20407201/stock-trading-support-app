@@ -9,6 +9,7 @@ import SwiftUI
 
 struct WatchlistView: View {
     @ObservedObject var viewModel: WatchlistViewModel
+    let investmentMemoRepository: any InvestmentMemoRepository
 
     var body: some View {
         List {
@@ -22,7 +23,10 @@ struct WatchlistView: View {
                 Section("ウォッチリスト") {
                     ForEach(viewModel.items) { item in
                         NavigationLink {
-                            StockDetailView(watchlistItem: item)
+                            StockDetailView(
+                                watchlistItem: item,
+                                memoRepository: investmentMemoRepository
+                            )
                         } label: {
                             WatchlistItemRow(item: item)
                         }
@@ -32,7 +36,7 @@ struct WatchlistView: View {
             }
 
             Section("今後の機能") {
-                Label("投資メモは今後実装します", systemImage: "note.text")
+                Label("確認メモは銘柄詳細で記録できます", systemImage: "note.text")
                 Label("ユーザー設定条件は今後実装します", systemImage: "slider.horizontal.3")
                 Label("条件履歴は今後実装します", systemImage: "clock.arrow.circlepath")
             }
@@ -79,6 +83,9 @@ private struct WatchlistItemRow: View {
 
 #Preview {
     NavigationStack {
-        WatchlistView(viewModel: WatchlistViewModel())
+        WatchlistView(
+            viewModel: WatchlistViewModel(),
+            investmentMemoRepository: InMemoryInvestmentMemoRepository()
+        )
     }
 }

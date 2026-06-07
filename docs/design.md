@@ -10,13 +10,13 @@
 - 銘柄検索・追加画面
 - 任意銘柄追加画面
 - 銘柄詳細画面
-- 投資メモ編集画面
+- 確認メモ編集画面
 - アラート条件一覧画面
 - アラート条件作成・編集画面
 - 通知履歴画面
 - 設定画面
 
-初期版の最小構成では、ウォッチリスト画面、銘柄追加画面、銘柄詳細画面、投資メモ編集、アラート条件設定、通知履歴を優先します。
+初期版の最小構成では、ウォッチリスト画面、銘柄追加画面、銘柄詳細画面、確認メモ編集、アラート条件設定、通知履歴を優先します。
 
 ## 画面遷移
 
@@ -24,7 +24,7 @@
 
 1. ウォッチリスト画面を起点にする
 2. ウォッチリストから銘柄詳細画面へ遷移する
-3. 銘柄詳細画面から投資メモ編集、アラート条件一覧、通知履歴へ遷移する
+3. 銘柄詳細画面から確認メモ編集、アラート条件一覧、通知履歴へ遷移する
 4. ウォッチリスト画面から銘柄追加画面へ遷移する
 5. 銘柄追加画面では、日経225銘柄候補から追加、または任意銘柄を手入力して追加する
 6. アラート条件一覧から条件作成・編集画面へ遷移する
@@ -55,10 +55,10 @@
 4. 作成した銘柄を WatchlistItem として追加する
 5. 日経225銘柄と同じ詳細画面・メモ・アラート条件を利用する
 
-### 投資メモ更新
+### 確認メモ更新
 
-1. ユーザーが銘柄詳細から投資メモ編集画面を開く
-2. 買いたい理由、売る条件、損切り条件、目標株価、注意点などを入力する
+1. ユーザーが銘柄詳細から確認メモ編集画面を開く
+2. 確認理由、見直し条件、注意点、決算前メモなどを入力する
 3. InvestmentMemo を保存する
 4. 保存後、銘柄詳細へ戻る
 
@@ -91,7 +91,8 @@
 - StockSearchView
 - CustomStockFormView
 - StockDetailView
-- InvestmentMemoView
+- InvestmentMemoViewModel
+- InvestmentMemoEditorView
 - AlertRuleListView
 - AlertRuleEditView
 - AlertHistoryView
@@ -116,6 +117,8 @@ View は表示とユーザー操作の受け取りを担当します。条件判
 初期版では過度に複雑なアーキテクチャにしません。ただし、条件判定ロジックは View から分離し、将来 Web/PC 版やバックエンドでも再利用しやすい形を目指します。
 
 Step 5 時点では、RootView が `WatchlistViewModel` を保持し、WatchlistView と AddStockView に同じインスタンスを渡します。これにより、日経225候補または任意入力銘柄を AddStockView で追加したあと、WatchlistView の一覧に同じウォッチリスト状態を反映できます。View は InMemoryWatchlistRepository を直接操作せず、ViewModel 経由で追加、削除、重複確認を行います。
+
+Step 6 時点では、RootView が `InMemoryInvestmentMemoRepository` を保持し、WatchlistView 経由で StockDetailView に渡します。StockDetailView は銘柄コードごとの `InvestmentMemoViewModel` を生成し、確認メモの一覧取得、追加、更新、削除を ViewModel 経由で行います。View は InMemoryInvestmentMemoRepository を直接操作せず、将来 SwiftData やバックエンドへ差し替えやすい境界を維持します。
 
 ## 株価・指標値取得の抽象化方針
 

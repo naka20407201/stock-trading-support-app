@@ -8,12 +8,24 @@
 import SwiftUI
 
 struct RootView: View {
-    @StateObject private var watchlistViewModel = WatchlistViewModel()
+    @StateObject private var watchlistViewModel: WatchlistViewModel
+    private let investmentMemoRepository: any InvestmentMemoRepository
+
+    init(
+        watchlistViewModel: WatchlistViewModel = WatchlistViewModel(),
+        investmentMemoRepository: any InvestmentMemoRepository = InMemoryInvestmentMemoRepository()
+    ) {
+        _watchlistViewModel = StateObject(wrappedValue: watchlistViewModel)
+        self.investmentMemoRepository = investmentMemoRepository
+    }
 
     var body: some View {
         TabView {
             NavigationStack {
-                WatchlistView(viewModel: watchlistViewModel)
+                WatchlistView(
+                    viewModel: watchlistViewModel,
+                    investmentMemoRepository: investmentMemoRepository
+                )
             }
             .tabItem {
                 Label("ウォッチリスト", systemImage: "list.bullet")

@@ -64,7 +64,7 @@ struct CustomStockInputValidator {
     ) -> [CustomStockInputValidationError] {
         var errors: [CustomStockInputValidationError] = []
 
-        if input.normalizedCode.count != 4 || !input.normalizedCode.allSatisfy(\.isNumber) {
+        if !isHalfWidthFourDigitCode(input.normalizedCode) {
             errors.append(.invalidCode)
         } else if containsCode(input.normalizedCode) {
             errors.append(.duplicateCode)
@@ -83,5 +83,12 @@ struct CustomStockInputValidator {
         }
 
         return errors
+    }
+
+    private func isHalfWidthFourDigitCode(_ code: String) -> Bool {
+        code.range(
+            of: #"^[0-9]{4}$"#,
+            options: .regularExpression
+        ) != nil
     }
 }
