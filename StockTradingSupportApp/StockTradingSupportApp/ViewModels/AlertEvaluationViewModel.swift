@@ -63,7 +63,9 @@ final class AlertEvaluationViewModel: ObservableObject {
     }
 
     func refresh() {
+        errorMessage = nil
         histories = historyRepository.fetchHistories(stockCode: stockCode)
+        syncRepositoryReadError()
     }
 
     func evaluate() {
@@ -71,6 +73,7 @@ final class AlertEvaluationViewModel: ObservableObject {
         errorMessage = nil
 
         let rules = alertRuleRepository.fetchRules(stockCode: stockCode)
+        syncRepositoryReadError()
         let currentSnapshot = stockDataProvider.snapshot(for: stockCode)
         snapshot = currentSnapshot
 
@@ -82,6 +85,7 @@ final class AlertEvaluationViewModel: ObservableObject {
                 )
             }
             histories = historyRepository.fetchHistories(stockCode: stockCode)
+            syncRepositoryReadError()
             return
         }
 
@@ -99,12 +103,14 @@ final class AlertEvaluationViewModel: ObservableObject {
         }
 
         histories = historyRepository.fetchHistories(stockCode: stockCode)
+        syncRepositoryReadError()
     }
 
     func clearHistories() {
         errorMessage = nil
         historyRepository.deleteAll(stockCode: stockCode)
-        histories = []
+        histories = historyRepository.fetchHistories(stockCode: stockCode)
+        syncRepositoryReadError()
     }
 
     private func addHistoryIfNeeded(
@@ -137,6 +143,17 @@ final class AlertEvaluationViewModel: ObservableObject {
             _ = try historyRepository.add(history)
         } catch {
             errorMessage = "条件一致履歴を保存できませんでした。"
+        }
+    }
+
+    private func syncRepositoryReadError() {
+        let readErrorMessages = [
+            (alertRuleRepository as? any RepositoryReadStatusProviding)?.readErrorMessage,
+            (historyRepository as? any RepositoryReadStatusProviding)?.readErrorMessage
+        ]
+
+        if let readErrorMessage = readErrorMessages.compactMap({ $0 }).first {
+            errorMessage = readErrorMessage
         }
     }
 }

@@ -279,8 +279,16 @@ Step 8 の実装:
 - `StockDataProviding`
 - `MockStockDataProvider`
 - 固定モック株価の `sourceName` は「固定モック株価」
-- 代表コードに対して `currentPrice` のみを返し、PER、PBR、出来高は nil のまま扱う
+- 代表コードに対して `currentPrice`、PER、PBR、出来高を返せる構造を持つ
+- UIで選択できる対象指標は現時点では `currentPrice` のみとし、PER、PBR、出来高の選択解放は後続対応とする
 - 未定義銘柄コードでは Snapshot を返さず、評価結果は判定不能として扱う
+
+Step 11前半の整理:
+
+- `MockStockDataValue` により、固定モック値として `currentPrice`、`per`、`pbr`、`volume` を保持できる
+- 既存の `mockValues: [String: Double]` 形式も currentPrice 用の簡易指定として利用できる
+- AlertRuleEvaluator は引き続き StockSnapshot の `value(for:)` を通して対象指標値を取得し、DataProviderの種類には依存しない
+- 外部API、手入力、リアルタイム取得を追加する場合も、まず StockSnapshot に変換してから評価する
 
 将来版:
 
@@ -325,6 +333,10 @@ Step 10 の実装:
 - `InvestmentMemoRecord`、`AlertRuleRecord`、`AlertMatchHistoryRecord` とDomainモデルの相互変換
 
 Step 10 時点で、ウォッチリスト、確認メモ、ユーザー設定条件、条件一致履歴はSwiftData Repositoryへ差し替え済みです。`InMemory...Repository` はPreviewとテスト用に維持します。
+
+Step 11前半では、SwiftData Repository の取得処理を `FetchDescriptor` の predicate / sort に寄せ、銘柄コードによる絞り込みや日時順の並び替えをSwiftData側で行うようにします。読み取り失敗時は `RepositoryReadStatusProviding` を通してViewModelへ中立的なエラーメッセージを渡し、画面では未登録状態と読み込み失敗を区別します。
+
+delete系は既存プロトコルの戻り値を大きく変えず、Boolの失敗をViewModel側でエラーメッセージとして保持します。条件一致履歴の全削除は現時点では戻り値を持たないため、失敗理由の詳細表示や例外伝播は後続の設計課題として残します。
 
 関連の考え方:
 

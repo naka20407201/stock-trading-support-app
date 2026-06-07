@@ -8,10 +8,11 @@
 import Foundation
 import SwiftData
 
-final class SwiftDataAlertRuleRepository: AlertRuleRepository {
+final class SwiftDataAlertRuleRepository: AlertRuleRepository, RepositoryReadStatusProviding {
     // The container is retained to keep in-memory test stores alive for the repository lifetime.
     private let modelContainer: ModelContainer?
     private let modelContext: ModelContext
+    private(set) var readErrorMessage: String?
 
     init(modelContext: ModelContext) {
         self.modelContainer = nil
@@ -25,18 +26,10 @@ final class SwiftDataAlertRuleRepository: AlertRuleRepository {
 
     func fetchRules(stockCode: String) -> [AlertRule] {
         do {
-            return try fetchRecords()
-                .filter { $0.stockCode == stockCode }
-                .compactMap(\.domainModel)
-                .sorted { lhs, rhs in
-                    if lhs.updatedAt == rhs.updatedAt {
-                        return lhs.createdAt > rhs.createdAt
-                    }
-
-                    return lhs.updatedAt > rhs.updatedAt
-                }
+            readErrorMessage = nil
+            return try fetchRecords(stockCode: stockCode).compactMap(\.domainModel)
         } catch {
-            // TODO: Surface persistence read failures through ViewModel state instead of showing an empty list.
+            readErrorMessage = RepositoryStatusMessage.readFailed
             return []
         }
     }
@@ -58,7 +51,7 @@ final class SwiftDataAlertRuleRepository: AlertRuleRepository {
     @discardableResult
     func update(_ rule: AlertRule) throws -> AlertRule {
         do {
-            guard let record = try fetchRecords().first(where: { $0.id == rule.id }) else {
+            guard let record = try fetchRecord(id: rule.id) else {
                 throw AlertRuleRepositoryError.ruleNotFound(rule.id)
             }
 
@@ -84,7 +77,7 @@ final class SwiftDataAlertRuleRepository: AlertRuleRepository {
     @discardableResult
     func delete(id: AlertRule.ID) -> Bool {
         do {
-            guard let record = try fetchRecords().first(where: { $0.id == id }) else {
+            guard let record = try fetchRecord(id: id) else {
                 return false
             }
 
@@ -97,7 +90,28 @@ final class SwiftDataAlertRuleRepository: AlertRuleRepository {
         }
     }
 
-    private func fetchRecords() throws -> [AlertRuleRecord] {
-        try modelContext.fetch(FetchDescriptor<AlertRuleRecord>())
+    private func fetchRecords(stockCode: String) throws -> [AlertRuleRecord] {
+        let targetStockCode = stockCode
+        let descriptor = FetchDescriptor<AlertRuleRecord>(
+            predicate: #Predicate { record in
+                record.stockCode == targetStockCode
+            },
+            sortBy: [
+                SortDescriptor(\.updatedAt, order: .reverse),
+                SortDescriptor(\.createdAt, order: .reverse)
+            ]
+        )
+        return try modelContext.fetch(descriptor)
+    }
+
+    private func fetchRecord(id: AlertRule.ID) throws -> AlertRuleRecord? {
+        let targetID = id
+        var descriptor = FetchDescriptor<AlertRuleRecord>(
+            predicate: #Predicate { record in
+                record.id == targetID
+            }
+        )
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
     }
 }

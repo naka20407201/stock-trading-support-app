@@ -242,6 +242,27 @@ struct StockTradingSupportAppTests {
         #expect(viewModel.items == [secondItem])
     }
 
+    @MainActor
+    @Test func watchlistViewModelReportsReadFailure() {
+        let viewModel = WatchlistViewModel(repository: ReadFailingWatchlistRepository())
+
+        #expect(viewModel.items.isEmpty)
+        #expect(viewModel.errorMessage == RepositoryStatusMessage.readFailed)
+    }
+
+    @MainActor
+    @Test func watchlistViewModelReportsDeleteFailure() {
+        let item = makeWatchlistItem(code: "7203", name: "トヨタ自動車")
+        let viewModel = WatchlistViewModel(
+            repository: DeleteFailingWatchlistRepository(initialItems: [item])
+        )
+
+        viewModel.delete(id: item.id)
+
+        #expect(viewModel.items == [item])
+        #expect(viewModel.errorMessage == RepositoryStatusMessage.deleteFailed)
+    }
+
     @Test func customStockInputValidatorRejectsInvalidCode() {
         let validator = CustomStockInputValidator()
         let input = CustomStockInput(
@@ -376,6 +397,26 @@ struct StockTradingSupportAppTests {
     }
 
     @MainActor
+    @Test func swiftDataInvestmentMemoRepositoryFetchesOnlySpecifiedStockCode() throws {
+        let repository = try makeSwiftDataInvestmentMemoRepository()
+        let targetMemo = makeInvestmentMemo(
+            id: UUID(uuidString: "BBBBBBBB-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!,
+            stockCode: "7203",
+            title: "トヨタ自動車の確認"
+        )
+        let otherMemo = makeInvestmentMemo(
+            id: UUID(uuidString: "CCCCCCCC-BBBB-CCCC-DDDD-EEEEEEEEEEEE")!,
+            stockCode: "6758",
+            title: "ソニーグループの確認"
+        )
+
+        try repository.add(targetMemo)
+        try repository.add(otherMemo)
+
+        #expect(repository.fetchMemos(stockCode: "7203") == [targetMemo])
+    }
+
+    @MainActor
     @Test func swiftDataInvestmentMemoRepositoryUpdatesMemo() throws {
         let repository = try makeSwiftDataInvestmentMemoRepository()
         let memo = makeInvestmentMemo(stockCode: "7203", title: "確認メモ")
@@ -483,6 +524,31 @@ struct StockTradingSupportAppTests {
         #expect(viewModel.memos == [secondMemo])
     }
 
+    @MainActor
+    @Test func investmentMemoViewModelReportsReadFailure() {
+        let viewModel = InvestmentMemoViewModel(
+            stockCode: "7203",
+            repository: ReadFailingInvestmentMemoRepository()
+        )
+
+        #expect(viewModel.memos.isEmpty)
+        #expect(viewModel.errorMessage == RepositoryStatusMessage.readFailed)
+    }
+
+    @MainActor
+    @Test func investmentMemoViewModelReportsDeleteFailure() {
+        let memo = makeInvestmentMemo(stockCode: "7203", title: "確認メモ")
+        let viewModel = InvestmentMemoViewModel(
+            stockCode: "7203",
+            repository: DeleteFailingInvestmentMemoRepository(initialMemos: [memo])
+        )
+
+        viewModel.deleteMemo(id: memo.id)
+
+        #expect(viewModel.memos == [memo])
+        #expect(viewModel.errorMessage == RepositoryStatusMessage.deleteFailed)
+    }
+
     @Test func inMemoryAlertRuleRepositoryAddsRule() throws {
         let repository = InMemoryAlertRuleRepository()
         let rule = makeAlertRule(stockCode: "7203", name: "現在値の確認")
@@ -547,6 +613,26 @@ struct StockTradingSupportAppTests {
         let fetchedRules = repository.fetchRules(stockCode: "7203")
 
         #expect(fetchedRules == [rule])
+    }
+
+    @MainActor
+    @Test func swiftDataAlertRuleRepositoryFetchesOnlySpecifiedStockCode() throws {
+        let repository = try makeSwiftDataAlertRuleRepository()
+        let targetRule = makeAlertRule(
+            id: UUID(uuidString: "BBBBBBBB-1111-2222-3333-EEEEEEEEEEEE")!,
+            stockCode: "7203",
+            name: "トヨタ自動車の確認"
+        )
+        let otherRule = makeAlertRule(
+            id: UUID(uuidString: "CCCCCCCC-1111-2222-3333-EEEEEEEEEEEE")!,
+            stockCode: "6758",
+            name: "ソニーグループの確認"
+        )
+
+        try repository.add(targetRule)
+        try repository.add(otherRule)
+
+        #expect(repository.fetchRules(stockCode: "7203") == [targetRule])
     }
 
     @MainActor
@@ -718,6 +804,31 @@ struct StockTradingSupportAppTests {
         #expect(viewModel.rules.first?.isEnabled == false)
     }
 
+    @MainActor
+    @Test func alertRuleViewModelReportsReadFailure() {
+        let viewModel = AlertRuleViewModel(
+            stockCode: "7203",
+            repository: ReadFailingAlertRuleRepository()
+        )
+
+        #expect(viewModel.rules.isEmpty)
+        #expect(viewModel.errorMessage == RepositoryStatusMessage.readFailed)
+    }
+
+    @MainActor
+    @Test func alertRuleViewModelReportsDeleteFailure() {
+        let rule = makeAlertRule(stockCode: "7203", name: "現在値の確認")
+        let viewModel = AlertRuleViewModel(
+            stockCode: "7203",
+            repository: DeleteFailingAlertRuleRepository(initialRules: [rule])
+        )
+
+        viewModel.deleteRule(id: rule.id)
+
+        #expect(viewModel.rules == [rule])
+        #expect(viewModel.errorMessage == RepositoryStatusMessage.deleteFailed)
+    }
+
     @Test func comparisonOperatorDefinesInitialSixCases() {
         #expect(ComparisonOperator.allCases == [
             .greaterThan,
@@ -812,6 +923,40 @@ struct StockTradingSupportAppTests {
         #expect(result == .disabled)
     }
 
+    @Test func alertRuleEvaluatorEvaluatesPerPbrAndVolume() {
+        let evaluator = AlertRuleEvaluator()
+        let snapshot = makeStockSnapshot(
+            stockCode: "7203",
+            currentPrice: 3200,
+            per: 12.5,
+            pbr: 1.1,
+            volume: 2_500_000
+        )
+        let cases: [(AlertMetric, Double)] = [
+            (.per, 12.0),
+            (.pbr, 1.0),
+            (.volume, 2_000_000)
+        ]
+
+        for (metric, thresholdValue) in cases {
+            let rule = makeAlertRule(
+                stockCode: "7203",
+                name: "\(metric.rawValue)の確認",
+                metric: metric,
+                comparisonOperator: .greaterThanOrEqual,
+                thresholdValue: thresholdValue
+            )
+
+            let result = evaluator.evaluate(rule: rule, snapshot: snapshot)
+
+            if case .matched = result {
+                #expect(true)
+            } else {
+                Issue.record("\(metric.rawValue) はStockSnapshotの値で評価できる必要があります。")
+            }
+        }
+    }
+
     @Test func mockStockDataProviderReturnsRepresentativeSnapshot() {
         let capturedAt = Date(timeIntervalSince1970: 100)
         let provider = MockStockDataProvider(capturedAt: capturedAt)
@@ -820,8 +965,32 @@ struct StockTradingSupportAppTests {
 
         #expect(snapshot?.stockCode == "7203")
         #expect(snapshot?.currentPrice == 3200)
+        #expect(snapshot?.per == 12.5)
+        #expect(snapshot?.pbr == 1.1)
+        #expect(snapshot?.volume == 2_500_000)
         #expect(snapshot?.capturedAt == capturedAt)
         #expect(snapshot?.sourceName == "固定モック株価")
+    }
+
+    @Test func mockStockDataProviderAcceptsCustomMetricValues() {
+        let provider = MockStockDataProvider(
+            capturedAt: Date(timeIntervalSince1970: 100),
+            mockValues: [
+                "1234": MockStockDataValue(
+                    currentPrice: 1000,
+                    per: 9.5,
+                    pbr: 0.8,
+                    volume: 123_456
+                )
+            ]
+        )
+
+        let snapshot = provider.snapshot(for: "1234")
+
+        #expect(snapshot?.currentPrice == 1000)
+        #expect(snapshot?.per == 9.5)
+        #expect(snapshot?.pbr == 0.8)
+        #expect(snapshot?.volume == 123_456)
     }
 
     @Test func mockStockDataProviderUsesRequestTimeWhenCapturedAtIsNotInjected() {
@@ -1091,6 +1260,23 @@ struct StockTradingSupportAppTests {
         #expect(viewModel.evaluations.first?.result == .matched(observedValue: 3200))
     }
 
+    @MainActor
+    @Test func alertEvaluationViewModelReportsRuleReadFailure() {
+        let viewModel = AlertEvaluationViewModel(
+            stockCode: "7203",
+            alertRuleRepository: ReadFailingAlertRuleRepository(),
+            stockDataProvider: MockStockDataProvider(
+                capturedAt: Date(timeIntervalSince1970: 1000),
+                mockValues: ["7203": 3200]
+            ),
+            historyRepository: InMemoryAlertMatchHistoryRepository()
+        )
+
+        viewModel.evaluate()
+
+        #expect(viewModel.errorMessage == RepositoryStatusMessage.readFailed)
+    }
+
     private func makeWatchlistItem(code: String, name: String) -> WatchlistItem {
         WatchlistItem(
             id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-\(code)\(code)\(code)")!,
@@ -1246,4 +1432,152 @@ private final class FailingAlertMatchHistoryRepository: AlertMatchHistoryReposit
     }
 
     func deleteAll(stockCode: String) {}
+}
+
+private final class ReadFailingWatchlistRepository: WatchlistRepository, RepositoryReadStatusProviding {
+    let readErrorMessage: String? = RepositoryStatusMessage.readFailed
+
+    func fetchItems() -> [WatchlistItem] {
+        []
+    }
+
+    func contains(code: String) -> Bool {
+        false
+    }
+
+    @discardableResult
+    func add(_ item: WatchlistItem) throws -> WatchlistItem {
+        throw WatchlistRepositoryError.persistenceFailure("read failure test")
+    }
+
+    @discardableResult
+    func delete(id: WatchlistItem.ID) -> Bool {
+        false
+    }
+}
+
+private final class DeleteFailingWatchlistRepository: WatchlistRepository {
+    private let items: [WatchlistItem]
+
+    init(initialItems: [WatchlistItem]) {
+        self.items = initialItems
+    }
+
+    func fetchItems() -> [WatchlistItem] {
+        items
+    }
+
+    func contains(code: String) -> Bool {
+        items.contains { $0.code == code }
+    }
+
+    @discardableResult
+    func add(_ item: WatchlistItem) throws -> WatchlistItem {
+        item
+    }
+
+    @discardableResult
+    func delete(id: WatchlistItem.ID) -> Bool {
+        false
+    }
+}
+
+private final class ReadFailingInvestmentMemoRepository: InvestmentMemoRepository, RepositoryReadStatusProviding {
+    let readErrorMessage: String? = RepositoryStatusMessage.readFailed
+
+    func fetchMemos(stockCode: String) -> [InvestmentMemo] {
+        []
+    }
+
+    @discardableResult
+    func add(_ memo: InvestmentMemo) throws -> InvestmentMemo {
+        throw InvestmentMemoRepositoryError.persistenceFailure("read failure test")
+    }
+
+    @discardableResult
+    func update(_ memo: InvestmentMemo) throws -> InvestmentMemo {
+        throw InvestmentMemoRepositoryError.persistenceFailure("read failure test")
+    }
+
+    @discardableResult
+    func delete(id: InvestmentMemo.ID) -> Bool {
+        false
+    }
+}
+
+private final class DeleteFailingInvestmentMemoRepository: InvestmentMemoRepository {
+    private let memos: [InvestmentMemo]
+
+    init(initialMemos: [InvestmentMemo]) {
+        self.memos = initialMemos
+    }
+
+    func fetchMemos(stockCode: String) -> [InvestmentMemo] {
+        memos.filter { $0.stockCode == stockCode }
+    }
+
+    @discardableResult
+    func add(_ memo: InvestmentMemo) throws -> InvestmentMemo {
+        memo
+    }
+
+    @discardableResult
+    func update(_ memo: InvestmentMemo) throws -> InvestmentMemo {
+        memo
+    }
+
+    @discardableResult
+    func delete(id: InvestmentMemo.ID) -> Bool {
+        false
+    }
+}
+
+private final class ReadFailingAlertRuleRepository: AlertRuleRepository, RepositoryReadStatusProviding {
+    let readErrorMessage: String? = RepositoryStatusMessage.readFailed
+
+    func fetchRules(stockCode: String) -> [AlertRule] {
+        []
+    }
+
+    @discardableResult
+    func add(_ rule: AlertRule) throws -> AlertRule {
+        throw AlertRuleRepositoryError.persistenceFailure("read failure test")
+    }
+
+    @discardableResult
+    func update(_ rule: AlertRule) throws -> AlertRule {
+        throw AlertRuleRepositoryError.persistenceFailure("read failure test")
+    }
+
+    @discardableResult
+    func delete(id: AlertRule.ID) -> Bool {
+        false
+    }
+}
+
+private final class DeleteFailingAlertRuleRepository: AlertRuleRepository {
+    private let rules: [AlertRule]
+
+    init(initialRules: [AlertRule]) {
+        self.rules = initialRules
+    }
+
+    func fetchRules(stockCode: String) -> [AlertRule] {
+        rules.filter { $0.stockCode == stockCode }
+    }
+
+    @discardableResult
+    func add(_ rule: AlertRule) throws -> AlertRule {
+        rule
+    }
+
+    @discardableResult
+    func update(_ rule: AlertRule) throws -> AlertRule {
+        rule
+    }
+
+    @discardableResult
+    func delete(id: AlertRule.ID) -> Bool {
+        false
+    }
 }

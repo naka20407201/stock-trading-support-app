@@ -8,10 +8,11 @@
 import Foundation
 import SwiftData
 
-final class SwiftDataInvestmentMemoRepository: InvestmentMemoRepository {
+final class SwiftDataInvestmentMemoRepository: InvestmentMemoRepository, RepositoryReadStatusProviding {
     // The container is retained to keep in-memory test stores alive for the repository lifetime.
     private let modelContainer: ModelContainer?
     private let modelContext: ModelContext
+    private(set) var readErrorMessage: String?
 
     init(modelContext: ModelContext) {
         self.modelContainer = nil
@@ -25,18 +26,10 @@ final class SwiftDataInvestmentMemoRepository: InvestmentMemoRepository {
 
     func fetchMemos(stockCode: String) -> [InvestmentMemo] {
         do {
-            return try fetchRecords()
-                .filter { $0.stockCode == stockCode }
-                .map(\.domainModel)
-                .sorted { lhs, rhs in
-                    if lhs.updatedAt == rhs.updatedAt {
-                        return lhs.createdAt > rhs.createdAt
-                    }
-
-                    return lhs.updatedAt > rhs.updatedAt
-                }
+            readErrorMessage = nil
+            return try fetchRecords(stockCode: stockCode).map(\.domainModel)
         } catch {
-            // TODO: Surface persistence read failures through ViewModel state instead of showing an empty list.
+            readErrorMessage = RepositoryStatusMessage.readFailed
             return []
         }
     }
@@ -58,7 +51,7 @@ final class SwiftDataInvestmentMemoRepository: InvestmentMemoRepository {
     @discardableResult
     func update(_ memo: InvestmentMemo) throws -> InvestmentMemo {
         do {
-            guard let record = try fetchRecords().first(where: { $0.id == memo.id }) else {
+            guard let record = try fetchRecord(id: memo.id) else {
                 throw InvestmentMemoRepositoryError.memoNotFound(memo.id)
             }
 
@@ -81,7 +74,7 @@ final class SwiftDataInvestmentMemoRepository: InvestmentMemoRepository {
     @discardableResult
     func delete(id: InvestmentMemo.ID) -> Bool {
         do {
-            guard let record = try fetchRecords().first(where: { $0.id == id }) else {
+            guard let record = try fetchRecord(id: id) else {
                 return false
             }
 
@@ -94,7 +87,28 @@ final class SwiftDataInvestmentMemoRepository: InvestmentMemoRepository {
         }
     }
 
-    private func fetchRecords() throws -> [InvestmentMemoRecord] {
-        try modelContext.fetch(FetchDescriptor<InvestmentMemoRecord>())
+    private func fetchRecords(stockCode: String) throws -> [InvestmentMemoRecord] {
+        let targetStockCode = stockCode
+        let descriptor = FetchDescriptor<InvestmentMemoRecord>(
+            predicate: #Predicate { record in
+                record.stockCode == targetStockCode
+            },
+            sortBy: [
+                SortDescriptor(\.updatedAt, order: .reverse),
+                SortDescriptor(\.createdAt, order: .reverse)
+            ]
+        )
+        return try modelContext.fetch(descriptor)
+    }
+
+    private func fetchRecord(id: InvestmentMemo.ID) throws -> InvestmentMemoRecord? {
+        let targetID = id
+        var descriptor = FetchDescriptor<InvestmentMemoRecord>(
+            predicate: #Predicate { record in
+                record.id == targetID
+            }
+        )
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
     }
 }

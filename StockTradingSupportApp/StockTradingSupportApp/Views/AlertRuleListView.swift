@@ -32,13 +32,13 @@ struct AlertRuleListView: View {
                 Label("条件を追加", systemImage: "plus.circle")
             }
 
-            if viewModel.rules.isEmpty {
+            if viewModel.rules.isEmpty && displayedErrorMessage == nil {
                 ContentUnavailableView(
                     "ユーザー設定条件は未登録です",
                     systemImage: "slider.horizontal.3",
                     description: Text("銘柄ごとの確認条件を登録できます。")
                 )
-            } else {
+            } else if !viewModel.rules.isEmpty {
                 ForEach(viewModel.rules) { rule in
                     AlertRuleRow(
                         rule: rule,
@@ -54,8 +54,8 @@ struct AlertRuleListView: View {
                 .onDelete(perform: deleteRules)
             }
 
-            if let errorMessage {
-                Label(errorMessage, systemImage: "exclamationmark.triangle")
+            if let displayedErrorMessage {
+                Label(displayedErrorMessage, systemImage: "exclamationmark.triangle")
                     .foregroundStyle(.orange)
             }
 
@@ -105,6 +105,10 @@ struct AlertRuleListView: View {
         } catch {
             errorMessage = "条件の有効状態を更新できませんでした。"
         }
+    }
+
+    private var displayedErrorMessage: String? {
+        errorMessage ?? viewModel.errorMessage
     }
 }
 

@@ -12,6 +12,7 @@ final class AlertRuleViewModel: ObservableObject {
     let stockCode: String
 
     @Published private(set) var rules: [AlertRule] = []
+    @Published private(set) var errorMessage: String?
 
     private let repository: any AlertRuleRepository
 
@@ -26,6 +27,7 @@ final class AlertRuleViewModel: ObservableObject {
 
     func refresh() {
         rules = repository.fetchRules(stockCode: stockCode)
+        syncReadError()
     }
 
     @discardableResult
@@ -89,8 +91,12 @@ final class AlertRuleViewModel: ObservableObject {
     }
 
     func deleteRule(id: AlertRule.ID) {
-        _ = repository.delete(id: id)
+        let didDelete = repository.delete(id: id)
         refresh()
+
+        if !didDelete && errorMessage == nil {
+            errorMessage = RepositoryStatusMessage.deleteFailed
+        }
     }
 
     func toggleEnabled(id: AlertRule.ID) throws {
@@ -104,6 +110,7 @@ final class AlertRuleViewModel: ObservableObject {
             refresh()
         } catch {
             refresh()
+            errorMessage = "条件の有効状態を更新できませんでした。"
             throw error
         }
     }
@@ -127,5 +134,9 @@ final class AlertRuleViewModel: ObservableObject {
         }
 
         return thresholdValue
+    }
+
+    private func syncReadError() {
+        errorMessage = (repository as? any RepositoryReadStatusProviding)?.readErrorMessage
     }
 }

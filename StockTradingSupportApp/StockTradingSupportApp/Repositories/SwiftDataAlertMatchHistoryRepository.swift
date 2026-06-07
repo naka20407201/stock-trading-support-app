@@ -12,10 +12,11 @@ enum AlertMatchHistoryRepositoryError: Error, Equatable {
     case persistenceFailure(String)
 }
 
-final class SwiftDataAlertMatchHistoryRepository: AlertMatchHistoryRepository {
+final class SwiftDataAlertMatchHistoryRepository: AlertMatchHistoryRepository, RepositoryReadStatusProviding {
     // The container is retained to keep in-memory test stores alive for the repository lifetime.
     private let modelContainer: ModelContainer?
     private let modelContext: ModelContext
+    private(set) var readErrorMessage: String?
 
     init(modelContext: ModelContext) {
         self.modelContainer = nil
@@ -29,12 +30,10 @@ final class SwiftDataAlertMatchHistoryRepository: AlertMatchHistoryRepository {
 
     func fetchHistories(stockCode: String) -> [AlertMatchHistory] {
         do {
-            return try fetchRecords()
-                .filter { $0.stockCode == stockCode }
-                .compactMap(\.domainModel)
-                .sorted { $0.matchedAt > $1.matchedAt }
+            readErrorMessage = nil
+            return try fetchRecords(stockCode: stockCode).compactMap(\.domainModel)
         } catch {
-            // TODO: Surface persistence read failures through ViewModel state instead of showing an empty list.
+            readErrorMessage = RepositoryStatusMessage.readFailed
             return []
         }
     }
@@ -56,7 +55,7 @@ final class SwiftDataAlertMatchHistoryRepository: AlertMatchHistoryRepository {
     @discardableResult
     func delete(id: AlertMatchHistory.ID) -> Bool {
         do {
-            guard let record = try fetchRecords().first(where: { $0.id == id }) else {
+            guard let record = try fetchRecord(id: id) else {
                 return false
             }
 
@@ -71,7 +70,7 @@ final class SwiftDataAlertMatchHistoryRepository: AlertMatchHistoryRepository {
 
     func deleteAll(stockCode: String) {
         do {
-            let records = try fetchRecords().filter { $0.stockCode == stockCode }
+            let records = try fetchRecords(stockCode: stockCode)
             for record in records {
                 modelContext.delete(record)
             }
@@ -82,7 +81,27 @@ final class SwiftDataAlertMatchHistoryRepository: AlertMatchHistoryRepository {
         }
     }
 
-    private func fetchRecords() throws -> [AlertMatchHistoryRecord] {
-        try modelContext.fetch(FetchDescriptor<AlertMatchHistoryRecord>())
+    private func fetchRecords(stockCode: String) throws -> [AlertMatchHistoryRecord] {
+        let targetStockCode = stockCode
+        let descriptor = FetchDescriptor<AlertMatchHistoryRecord>(
+            predicate: #Predicate { record in
+                record.stockCode == targetStockCode
+            },
+            sortBy: [
+                SortDescriptor(\.matchedAt, order: .reverse)
+            ]
+        )
+        return try modelContext.fetch(descriptor)
+    }
+
+    private func fetchRecord(id: AlertMatchHistory.ID) throws -> AlertMatchHistoryRecord? {
+        let targetID = id
+        var descriptor = FetchDescriptor<AlertMatchHistoryRecord>(
+            predicate: #Predicate { record in
+                record.id == targetID
+            }
+        )
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
     }
 }

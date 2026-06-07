@@ -12,6 +12,7 @@ final class InvestmentMemoViewModel: ObservableObject {
     let stockCode: String
 
     @Published private(set) var memos: [InvestmentMemo] = []
+    @Published private(set) var errorMessage: String?
 
     private let repository: any InvestmentMemoRepository
 
@@ -26,6 +27,7 @@ final class InvestmentMemoViewModel: ObservableObject {
 
     func refresh() {
         memos = repository.fetchMemos(stockCode: stockCode)
+        syncReadError()
     }
 
     @discardableResult
@@ -72,7 +74,15 @@ final class InvestmentMemoViewModel: ObservableObject {
     }
 
     func deleteMemo(id: InvestmentMemo.ID) {
-        _ = repository.delete(id: id)
+        let didDelete = repository.delete(id: id)
         refresh()
+
+        if !didDelete && errorMessage == nil {
+            errorMessage = RepositoryStatusMessage.deleteFailed
+        }
+    }
+
+    private func syncReadError() {
+        errorMessage = (repository as? any RepositoryReadStatusProviding)?.readErrorMessage
     }
 }

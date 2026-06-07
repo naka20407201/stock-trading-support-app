@@ -101,13 +101,18 @@ struct StockDetailView: View {
     @ViewBuilder
     private var memoSection: some View {
         Section("確認メモ") {
-            if memoViewModel.memos.isEmpty {
+            if let errorMessage = memoViewModel.errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+            }
+
+            if memoViewModel.memos.isEmpty && memoViewModel.errorMessage == nil {
                 ContentUnavailableView(
                     "確認メモは未登録です",
                     systemImage: "note.text",
                     description: Text("気になった点を記録できます。")
                 )
-            } else {
+            } else if !memoViewModel.memos.isEmpty {
                 ForEach(memoViewModel.memos) { memo in
                     Button {
                         editorPresentation = .edit(memo)

@@ -16,13 +16,20 @@ struct WatchlistView: View {
 
     var body: some View {
         List {
-            if viewModel.items.isEmpty {
+            if let errorMessage = viewModel.errorMessage {
+                Section {
+                    Label(errorMessage, systemImage: "exclamationmark.triangle")
+                        .foregroundStyle(.orange)
+                }
+            }
+
+            if viewModel.items.isEmpty && viewModel.errorMessage == nil {
                 ContentUnavailableView(
                     "ウォッチリストは未登録です",
                     systemImage: "list.bullet.rectangle",
                     description: Text("右上の追加ボタンから銘柄を追加できます。")
                 )
-            } else {
+            } else if !viewModel.items.isEmpty {
                 Section("ウォッチリスト") {
                     ForEach(viewModel.items) { item in
                         NavigationLink {

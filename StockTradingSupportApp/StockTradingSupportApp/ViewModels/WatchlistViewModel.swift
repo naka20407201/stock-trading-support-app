@@ -10,6 +10,7 @@ import Foundation
 
 final class WatchlistViewModel: ObservableObject {
     @Published private(set) var items: [WatchlistItem] = []
+    @Published private(set) var errorMessage: String?
 
     private let repository: any WatchlistRepository
 
@@ -20,6 +21,7 @@ final class WatchlistViewModel: ObservableObject {
 
     func refresh() {
         items = repository.fetchItems()
+        syncReadError()
     }
 
     @discardableResult
@@ -30,11 +32,19 @@ final class WatchlistViewModel: ObservableObject {
     }
 
     func delete(id: WatchlistItem.ID) {
-        _ = repository.delete(id: id)
+        let didDelete = repository.delete(id: id)
         refresh()
+
+        if !didDelete && errorMessage == nil {
+            errorMessage = RepositoryStatusMessage.deleteFailed
+        }
     }
 
     func contains(code: String) -> Bool {
         repository.contains(code: code)
+    }
+
+    private func syncReadError() {
+        errorMessage = (repository as? any RepositoryReadStatusProviding)?.readErrorMessage
     }
 }

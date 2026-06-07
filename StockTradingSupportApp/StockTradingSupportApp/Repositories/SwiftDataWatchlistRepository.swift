@@ -8,10 +8,11 @@
 import Foundation
 import SwiftData
 
-final class SwiftDataWatchlistRepository: WatchlistRepository {
+final class SwiftDataWatchlistRepository: WatchlistRepository, RepositoryReadStatusProviding {
     // The container is retained to keep in-memory test stores alive for the repository lifetime.
     private let modelContainer: ModelContainer?
     private let modelContext: ModelContext
+    private(set) var readErrorMessage: String?
 
     init(modelContext: ModelContext) {
         self.modelContainer = nil
@@ -25,25 +26,20 @@ final class SwiftDataWatchlistRepository: WatchlistRepository {
 
     func fetchItems() -> [WatchlistItem] {
         do {
-            return try fetchRecords()
-                .map(\.domainModel)
-                .sorted { lhs, rhs in
-                    if lhs.createdAt == rhs.createdAt {
-                        return lhs.code < rhs.code
-                    }
-
-                    return lhs.createdAt < rhs.createdAt
-                }
+            readErrorMessage = nil
+            return try fetchRecords().map(\.domainModel)
         } catch {
-            // TODO: Surface persistence read failures through ViewModel state instead of showing an empty list.
+            readErrorMessage = RepositoryStatusMessage.readFailed
             return []
         }
     }
 
     func contains(code: String) -> Bool {
         do {
-            return try fetchRecords().contains { $0.code == code }
+            readErrorMessage = nil
+            return try fetchRecord(code: code) != nil
         } catch {
+            readErrorMessage = RepositoryStatusMessage.readFailed
             return false
         }
     }
@@ -69,7 +65,7 @@ final class SwiftDataWatchlistRepository: WatchlistRepository {
     @discardableResult
     func delete(id: WatchlistItem.ID) -> Bool {
         do {
-            guard let record = try fetchRecords().first(where: { $0.id == id }) else {
+            guard let record = try fetchRecord(id: id) else {
                 return false
             }
 
@@ -83,6 +79,34 @@ final class SwiftDataWatchlistRepository: WatchlistRepository {
     }
 
     private func fetchRecords() throws -> [WatchlistItemRecord] {
-        try modelContext.fetch(FetchDescriptor<WatchlistItemRecord>())
+        let descriptor = FetchDescriptor<WatchlistItemRecord>(
+            sortBy: [
+                SortDescriptor(\.createdAt, order: .forward),
+                SortDescriptor(\.code, order: .forward)
+            ]
+        )
+        return try modelContext.fetch(descriptor)
+    }
+
+    private func fetchRecord(code: String) throws -> WatchlistItemRecord? {
+        let targetCode = code
+        var descriptor = FetchDescriptor<WatchlistItemRecord>(
+            predicate: #Predicate { record in
+                record.code == targetCode
+            }
+        )
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
+    }
+
+    private func fetchRecord(id: WatchlistItem.ID) throws -> WatchlistItemRecord? {
+        let targetID = id
+        var descriptor = FetchDescriptor<WatchlistItemRecord>(
+            predicate: #Predicate { record in
+                record.id == targetID
+            }
+        )
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first
     }
 }
