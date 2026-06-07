@@ -104,6 +104,42 @@ struct StockTradingSupportAppTests {
     }
 
     @MainActor
+    @Test func investmentMemoRecordConvertsToDomainModel() {
+        let memo = makeInvestmentMemo(stockCode: "7203", title: "確認メモ")
+        let record = InvestmentMemoRecord(memo: memo)
+
+        #expect(record.id == memo.id)
+        #expect(record.stockCode == memo.stockCode)
+        #expect(record.title == memo.title)
+        #expect(record.domainModel == memo)
+        #expect(InvestmentMemo(record: record) == memo)
+    }
+
+    @MainActor
+    @Test func alertRuleRecordConvertsToDomainModel() {
+        let rule = makeAlertRule(stockCode: "7203", name: "現在値の確認")
+        let record = AlertRuleRecord(rule: rule)
+
+        #expect(record.id == rule.id)
+        #expect(record.metricRawValue == rule.metric.rawValue)
+        #expect(record.comparisonOperatorRawValue == rule.comparisonOperator.rawValue)
+        #expect(record.domainModel == rule)
+        #expect(AlertRule(record: record) == rule)
+    }
+
+    @MainActor
+    @Test func alertMatchHistoryRecordConvertsToDomainModel() {
+        let history = makeAlertMatchHistory(stockCode: "7203")
+        let record = AlertMatchHistoryRecord(history: history)
+
+        #expect(record.id == history.id)
+        #expect(record.alertRuleName == history.alertRuleName)
+        #expect(record.metricRawValue == history.metric.rawValue)
+        #expect(record.domainModel == history)
+        #expect(AlertMatchHistory(record: record) == history)
+    }
+
+    @MainActor
     @Test func swiftDataWatchlistRepositoryAddsAndFetchesItem() throws {
         let repository = try makeSwiftDataWatchlistRepository()
         let item = makeWatchlistItem(code: "6758", name: "ソニーグループ")
@@ -329,6 +365,59 @@ struct StockTradingSupportAppTests {
     }
 
     @MainActor
+    @Test func swiftDataInvestmentMemoRepositoryAddsAndFetchesMemo() throws {
+        let repository = try makeSwiftDataInvestmentMemoRepository()
+        let memo = makeInvestmentMemo(stockCode: "7203", title: "決算前の確認")
+
+        try repository.add(memo)
+        let fetchedMemos = repository.fetchMemos(stockCode: "7203")
+
+        #expect(fetchedMemos == [memo])
+    }
+
+    @MainActor
+    @Test func swiftDataInvestmentMemoRepositoryUpdatesMemo() throws {
+        let repository = try makeSwiftDataInvestmentMemoRepository()
+        let memo = makeInvestmentMemo(stockCode: "7203", title: "確認メモ")
+        let updatedMemo = memo.updating(
+            title: "確認メモを更新",
+            body: "入力内容を更新しました。",
+            updatedAt: Date(timeIntervalSince1970: 100)
+        )
+
+        try repository.add(memo)
+        try repository.update(updatedMemo)
+
+        #expect(repository.fetchMemos(stockCode: "7203") == [updatedMemo])
+    }
+
+    @MainActor
+    @Test func swiftDataInvestmentMemoRepositoryDeletesMemo() throws {
+        let repository = try makeSwiftDataInvestmentMemoRepository()
+        let memo = makeInvestmentMemo(stockCode: "7203", title: "確認メモ")
+
+        try repository.add(memo)
+        let didDelete = repository.delete(id: memo.id)
+
+        #expect(didDelete)
+        #expect(repository.fetchMemos(stockCode: "7203").isEmpty)
+    }
+
+    @MainActor
+    @Test func swiftDataInvestmentMemoViewModelAddsMemo() throws {
+        let viewModel = InvestmentMemoViewModel(
+            stockCode: "7203",
+            repository: try makeSwiftDataInvestmentMemoRepository()
+        )
+
+        try viewModel.addMemo(title: "確認メモ", body: "気になった点を記録しました。")
+
+        #expect(viewModel.memos.count == 1)
+        #expect(viewModel.memos.first?.stockCode == "7203")
+        #expect(viewModel.memos.first?.title == "確認メモ")
+    }
+
+    @MainActor
     @Test func investmentMemoViewModelAddsMemo() throws {
         let viewModel = InvestmentMemoViewModel(
             stockCode: "7203",
@@ -447,6 +536,78 @@ struct StockTradingSupportAppTests {
 
         #expect(didDelete)
         #expect(repository.fetchRules(stockCode: "7203").isEmpty)
+    }
+
+    @MainActor
+    @Test func swiftDataAlertRuleRepositoryAddsAndFetchesRule() throws {
+        let repository = try makeSwiftDataAlertRuleRepository()
+        let rule = makeAlertRule(stockCode: "7203", name: "現在値の確認")
+
+        try repository.add(rule)
+        let fetchedRules = repository.fetchRules(stockCode: "7203")
+
+        #expect(fetchedRules == [rule])
+    }
+
+    @MainActor
+    @Test func swiftDataAlertRuleRepositoryUpdatesRule() throws {
+        let repository = try makeSwiftDataAlertRuleRepository()
+        let rule = makeAlertRule(stockCode: "7203", name: "現在値の確認")
+        let updatedRule = rule.updating(
+            name: "現在値の確認を更新",
+            comparisonOperator: .lessThanOrEqual,
+            thresholdValue: 2500,
+            isEnabled: false,
+            updatedAt: Date(timeIntervalSince1970: 100)
+        )
+
+        try repository.add(rule)
+        try repository.update(updatedRule)
+
+        #expect(repository.fetchRules(stockCode: "7203") == [updatedRule])
+    }
+
+    @MainActor
+    @Test func swiftDataAlertRuleRepositoryDeletesRule() throws {
+        let repository = try makeSwiftDataAlertRuleRepository()
+        let rule = makeAlertRule(stockCode: "7203", name: "現在値の確認")
+
+        try repository.add(rule)
+        let didDelete = repository.delete(id: rule.id)
+
+        #expect(didDelete)
+        #expect(repository.fetchRules(stockCode: "7203").isEmpty)
+    }
+
+    @MainActor
+    @Test func swiftDataAlertRuleRepositorySkipsInvalidRawValues() throws {
+        let container = try makeSwiftDataModelContainer()
+        let invalidRecord = AlertRuleRecord(
+            stockCode: "7203",
+            name: "復元できない条件",
+            metricRawValue: "unknownMetric",
+            comparisonOperatorRawValue: ComparisonOperator.greaterThanOrEqual.rawValue,
+            thresholdValue: 3000
+        )
+        container.mainContext.insert(invalidRecord)
+        try container.mainContext.save()
+
+        let repository = SwiftDataAlertRuleRepository(modelContainer: container)
+
+        #expect(repository.fetchRules(stockCode: "7203").isEmpty)
+    }
+
+    @MainActor
+    @Test func swiftDataAlertRuleViewModelTogglesEnabled() throws {
+        let rule = makeAlertRule(stockCode: "7203", name: "現在値の確認", isEnabled: true)
+        let repository = try makeSwiftDataAlertRuleRepository()
+        try repository.add(rule)
+        let viewModel = AlertRuleViewModel(stockCode: "7203", repository: repository)
+
+        try viewModel.toggleEnabled(id: rule.id)
+
+        #expect(viewModel.rules.first?.isEnabled == false)
+        #expect(repository.fetchRules(stockCode: "7203").first?.isEnabled == false)
     }
 
     @MainActor
@@ -740,6 +901,118 @@ struct StockTradingSupportAppTests {
     }
 
     @MainActor
+    @Test func swiftDataAlertMatchHistoryRepositoryAddsAndFetchesHistory() throws {
+        let repository = try makeSwiftDataAlertMatchHistoryRepository()
+        let history = makeAlertMatchHistory(stockCode: "7203")
+
+        try repository.add(history)
+        let fetchedHistories = repository.fetchHistories(stockCode: "7203")
+
+        #expect(fetchedHistories == [history])
+    }
+
+    @MainActor
+    @Test func swiftDataAlertMatchHistoryRepositoryFetchesOnlySpecifiedStockCode() throws {
+        let repository = try makeSwiftDataAlertMatchHistoryRepository()
+        let targetHistory = makeAlertMatchHistory(
+            id: UUID(uuidString: "BBBBBBBB-9999-8888-7777-BBBBBBBBBBBB")!,
+            stockCode: "7203"
+        )
+        let otherHistory = makeAlertMatchHistory(
+            id: UUID(uuidString: "CCCCCCCC-9999-8888-7777-CCCCCCCCCCCC")!,
+            stockCode: "6758"
+        )
+
+        try repository.add(targetHistory)
+        try repository.add(otherHistory)
+
+        #expect(repository.fetchHistories(stockCode: "7203") == [targetHistory])
+    }
+
+    @MainActor
+    @Test func swiftDataAlertMatchHistoryRepositoryDeletesHistory() throws {
+        let repository = try makeSwiftDataAlertMatchHistoryRepository()
+        let history = makeAlertMatchHistory(stockCode: "7203")
+
+        try repository.add(history)
+        let didDelete = repository.delete(id: history.id)
+
+        #expect(didDelete)
+        #expect(repository.fetchHistories(stockCode: "7203").isEmpty)
+    }
+
+    @MainActor
+    @Test func swiftDataAlertMatchHistoryRepositoryDeletesAllHistoriesForStockCode() throws {
+        let repository = try makeSwiftDataAlertMatchHistoryRepository()
+        let targetHistory = makeAlertMatchHistory(
+            id: UUID(uuidString: "BBBBBBBB-9999-8888-7777-BBBBBBBBBBBB")!,
+            stockCode: "7203"
+        )
+        let otherHistory = makeAlertMatchHistory(
+            id: UUID(uuidString: "CCCCCCCC-9999-8888-7777-CCCCCCCCCCCC")!,
+            stockCode: "6758"
+        )
+
+        try repository.add(targetHistory)
+        try repository.add(otherHistory)
+        repository.deleteAll(stockCode: "7203")
+
+        #expect(repository.fetchHistories(stockCode: "7203").isEmpty)
+        #expect(repository.fetchHistories(stockCode: "6758") == [otherHistory])
+    }
+
+    @MainActor
+    @Test func swiftDataAlertMatchHistoryRepositorySkipsInvalidRawValues() throws {
+        let container = try makeSwiftDataModelContainer()
+        let invalidRecord = AlertMatchHistoryRecord(
+            stockCode: "7203",
+            alertRuleId: UUID(uuidString: "AAAAAAAA-1111-2222-3333-EEEEEEEEEEEE")!,
+            alertRuleName: "復元できない履歴",
+            metricRawValue: AlertMetric.currentPrice.rawValue,
+            comparisonOperatorRawValue: "unknownComparison",
+            thresholdValue: 3000,
+            observedValue: 3200,
+            matchedAt: Date(timeIntervalSince1970: 0),
+            sourceName: "テストデータ"
+        )
+        container.mainContext.insert(invalidRecord)
+        try container.mainContext.save()
+
+        let repository = SwiftDataAlertMatchHistoryRepository(modelContainer: container)
+
+        #expect(repository.fetchHistories(stockCode: "7203").isEmpty)
+    }
+
+    @MainActor
+    @Test func alertEvaluationViewModelCreatesHistoryWithSwiftDataRepositories() throws {
+        let capturedAt = Date(timeIntervalSince1970: 1000)
+        let rule = makeAlertRule(
+            stockCode: "7203",
+            name: "現在値の確認",
+            comparisonOperator: .greaterThanOrEqual,
+            thresholdValue: 3000
+        )
+        let alertRuleRepository = try makeSwiftDataAlertRuleRepository()
+        let historyRepository = try makeSwiftDataAlertMatchHistoryRepository()
+        try alertRuleRepository.add(rule)
+        let viewModel = AlertEvaluationViewModel(
+            stockCode: "7203",
+            alertRuleRepository: alertRuleRepository,
+            stockDataProvider: MockStockDataProvider(
+                capturedAt: capturedAt,
+                mockValues: ["7203": 3200]
+            ),
+            historyRepository: historyRepository
+        )
+
+        viewModel.evaluate()
+
+        #expect(viewModel.histories.count == 1)
+        #expect(historyRepository.fetchHistories(stockCode: "7203").first?.alertRuleId == rule.id)
+        #expect(historyRepository.fetchHistories(stockCode: "7203").first?.matchedAt == capturedAt)
+    }
+
+    @MainActor
     @Test func alertEvaluationViewModelEvaluatesRulesAndCreatesHistory() {
         let capturedAt = Date(timeIntervalSince1970: 1000)
         let rule = makeAlertRule(
@@ -920,6 +1193,26 @@ struct StockTradingSupportAppTests {
 
     @MainActor
     private func makeSwiftDataWatchlistRepository() throws -> SwiftDataWatchlistRepository {
+        try SwiftDataWatchlistRepository(modelContainer: makeSwiftDataModelContainer())
+    }
+
+    @MainActor
+    private func makeSwiftDataInvestmentMemoRepository() throws -> SwiftDataInvestmentMemoRepository {
+        try SwiftDataInvestmentMemoRepository(modelContainer: makeSwiftDataModelContainer())
+    }
+
+    @MainActor
+    private func makeSwiftDataAlertRuleRepository() throws -> SwiftDataAlertRuleRepository {
+        try SwiftDataAlertRuleRepository(modelContainer: makeSwiftDataModelContainer())
+    }
+
+    @MainActor
+    private func makeSwiftDataAlertMatchHistoryRepository() throws -> SwiftDataAlertMatchHistoryRepository {
+        try SwiftDataAlertMatchHistoryRepository(modelContainer: makeSwiftDataModelContainer())
+    }
+
+    @MainActor
+    private func makeSwiftDataModelContainer() throws -> ModelContainer {
         let schema = Schema([
             PersistenceSchemaPlaceholder.self,
             WatchlistItemRecord.self,
@@ -928,8 +1221,7 @@ struct StockTradingSupportAppTests {
             AlertMatchHistoryRecord.self
         ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-        let container = try ModelContainer(for: schema, configurations: [configuration])
-        return SwiftDataWatchlistRepository(modelContainer: container)
+        return try ModelContainer(for: schema, configurations: [configuration])
     }
 
 }

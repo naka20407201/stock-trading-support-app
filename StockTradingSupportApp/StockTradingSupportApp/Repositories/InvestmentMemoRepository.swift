@@ -16,6 +16,7 @@ protocol InvestmentMemoRepository: AnyObject {
 
 enum InvestmentMemoRepositoryError: Error, Equatable {
     case memoNotFound(UUID)
+    case persistenceFailure(String)
 }
 
 final class InMemoryInvestmentMemoRepository: InvestmentMemoRepository {

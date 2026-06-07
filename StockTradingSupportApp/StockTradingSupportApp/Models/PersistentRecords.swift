@@ -91,6 +91,34 @@ final class InvestmentMemoRecord {
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
+
+    convenience init(memo: InvestmentMemo) {
+        self.init(
+            id: memo.id,
+            stockCode: memo.stockCode,
+            title: memo.title,
+            body: memo.body,
+            createdAt: memo.createdAt,
+            updatedAt: memo.updatedAt
+        )
+    }
+
+    var domainModel: InvestmentMemo {
+        InvestmentMemo(record: self)
+    }
+}
+
+extension InvestmentMemo {
+    init(record: InvestmentMemoRecord) {
+        self.init(
+            id: record.id,
+            stockCode: record.stockCode,
+            title: record.title,
+            body: record.body,
+            createdAt: record.createdAt,
+            updatedAt: record.updatedAt
+        )
+    }
 }
 
 @Model
@@ -125,6 +153,47 @@ final class AlertRuleRecord {
         self.isEnabled = isEnabled
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+    }
+
+    convenience init(rule: AlertRule) {
+        self.init(
+            id: rule.id,
+            stockCode: rule.stockCode,
+            name: rule.name,
+            metricRawValue: rule.metric.rawValue,
+            comparisonOperatorRawValue: rule.comparisonOperator.rawValue,
+            thresholdValue: rule.thresholdValue,
+            isEnabled: rule.isEnabled,
+            createdAt: rule.createdAt,
+            updatedAt: rule.updatedAt
+        )
+    }
+
+    var domainModel: AlertRule? {
+        AlertRule(record: self)
+    }
+}
+
+extension AlertRule {
+    init?(record: AlertRuleRecord) {
+        guard
+            let metric = AlertMetric(rawValue: record.metricRawValue),
+            let comparisonOperator = ComparisonOperator(rawValue: record.comparisonOperatorRawValue)
+        else {
+            return nil
+        }
+
+        self.init(
+            id: record.id,
+            stockCode: record.stockCode,
+            name: record.name,
+            metric: metric,
+            comparisonOperator: comparisonOperator,
+            thresholdValue: record.thresholdValue,
+            isEnabled: record.isEnabled,
+            createdAt: record.createdAt,
+            updatedAt: record.updatedAt
+        )
     }
 }
 
@@ -163,5 +232,48 @@ final class AlertMatchHistoryRecord {
         self.observedValue = observedValue
         self.matchedAt = matchedAt
         self.sourceName = sourceName
+    }
+
+    convenience init(history: AlertMatchHistory) {
+        self.init(
+            id: history.id,
+            stockCode: history.stockCode,
+            alertRuleId: history.alertRuleId,
+            alertRuleName: history.alertRuleName,
+            metricRawValue: history.metric.rawValue,
+            comparisonOperatorRawValue: history.comparisonOperator.rawValue,
+            thresholdValue: history.thresholdValue,
+            observedValue: history.observedValue,
+            matchedAt: history.matchedAt,
+            sourceName: history.sourceName
+        )
+    }
+
+    var domainModel: AlertMatchHistory? {
+        AlertMatchHistory(record: self)
+    }
+}
+
+extension AlertMatchHistory {
+    init?(record: AlertMatchHistoryRecord) {
+        guard
+            let metric = AlertMetric(rawValue: record.metricRawValue),
+            let comparisonOperator = ComparisonOperator(rawValue: record.comparisonOperatorRawValue)
+        else {
+            return nil
+        }
+
+        self.init(
+            id: record.id,
+            stockCode: record.stockCode,
+            alertRuleId: record.alertRuleId,
+            alertRuleName: record.alertRuleName,
+            metric: metric,
+            comparisonOperator: comparisonOperator,
+            thresholdValue: record.thresholdValue,
+            observedValue: record.observedValue,
+            matchedAt: record.matchedAt,
+            sourceName: record.sourceName
+        )
     }
 }

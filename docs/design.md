@@ -130,6 +130,10 @@ Step 8 時点では、RootView が `MockStockDataProvider` と `InMemoryAlertMat
 
 Step 9 時点では、App entry が SwiftData の `ModelContainer` を作成し、`SwiftDataWatchlistRepository` を `WatchlistViewModel` に注入します。RootView 以降のViewは引き続き `WatchlistViewModel` と `WatchlistRepository` 境界だけを利用し、SwiftData の `ModelContext` を直接操作しません。確認メモ、ユーザー設定条件、条件一致履歴はまだInMemory Repositoryを利用し、後続Stepで同じ境界のままSwiftData実装へ差し替えます。
 
+Step 10 時点では、App entry が `SwiftDataInvestmentMemoRepository`、`SwiftDataAlertRuleRepository`、`SwiftDataAlertMatchHistoryRepository` も作成し、RootView に注入します。確認メモ、ユーザー設定条件、条件一致履歴もSwiftDataへ永続化しますが、StockDetailView、各ViewModel、AlertRuleEvaluator は引き続き Repository / DataProvider 境界だけを利用し、SwiftData の `ModelContext` を直接操作しません。InMemory Repository はPreviewとテスト用として残します。
+
+SwiftData Repository の取得失敗時は、現時点では空配列を返します。これは初期実装としてViewModelの契約を大きく変えないためですが、ユーザーから見るとデータ未登録と区別しにくいため、後続StepでRepositoryエラーをViewModelへ伝え、画面上で読み込み失敗として表示する改善を検討します。
+
 ## 株価・指標値取得の抽象化方針
 
 条件判定ロジックは、手入力画面、モックデータ、外部API、リアルタイムデータを直接参照しません。データ取得元を DataProvider 相当の境界に閉じ込め、AlertRuleEvaluator は StockSnapshot だけを入力として扱います。

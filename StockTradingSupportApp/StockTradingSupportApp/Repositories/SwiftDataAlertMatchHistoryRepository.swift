@@ -1,5 +1,5 @@
 //
-//  SwiftDataWatchlistRepository.swift
+//  SwiftDataAlertMatchHistoryRepository.swift
 //  StockTradingSupportApp
 //
 //  Created by Codex on 2026/06/07.
@@ -8,7 +8,11 @@
 import Foundation
 import SwiftData
 
-final class SwiftDataWatchlistRepository: WatchlistRepository {
+enum AlertMatchHistoryRepositoryError: Error, Equatable {
+    case persistenceFailure(String)
+}
+
+final class SwiftDataAlertMatchHistoryRepository: AlertMatchHistoryRepository {
     // The container is retained to keep in-memory test stores alive for the repository lifetime.
     private let modelContainer: ModelContainer?
     private let modelContext: ModelContext
@@ -23,51 +27,34 @@ final class SwiftDataWatchlistRepository: WatchlistRepository {
         self.modelContext = modelContainer.mainContext
     }
 
-    func fetchItems() -> [WatchlistItem] {
+    func fetchHistories(stockCode: String) -> [AlertMatchHistory] {
         do {
             return try fetchRecords()
-                .map(\.domainModel)
-                .sorted { lhs, rhs in
-                    if lhs.createdAt == rhs.createdAt {
-                        return lhs.code < rhs.code
-                    }
-
-                    return lhs.createdAt < rhs.createdAt
-                }
+                .filter { $0.stockCode == stockCode }
+                .compactMap(\.domainModel)
+                .sorted { $0.matchedAt > $1.matchedAt }
         } catch {
             // TODO: Surface persistence read failures through ViewModel state instead of showing an empty list.
             return []
         }
     }
 
-    func contains(code: String) -> Bool {
-        do {
-            return try fetchRecords().contains { $0.code == code }
-        } catch {
-            return false
-        }
-    }
-
     @discardableResult
-    func add(_ item: WatchlistItem) throws -> WatchlistItem {
-        guard !contains(code: item.code) else {
-            throw WatchlistRepositoryError.duplicateCode(item.code)
-        }
-
-        let record = WatchlistItemRecord(item: item)
+    func add(_ history: AlertMatchHistory) throws -> AlertMatchHistory {
+        let record = AlertMatchHistoryRecord(history: history)
         modelContext.insert(record)
 
         do {
             try modelContext.save()
-            return item
+            return history
         } catch {
             modelContext.rollback()
-            throw WatchlistRepositoryError.persistenceFailure(error.localizedDescription)
+            throw AlertMatchHistoryRepositoryError.persistenceFailure(error.localizedDescription)
         }
     }
 
     @discardableResult
-    func delete(id: WatchlistItem.ID) -> Bool {
+    func delete(id: AlertMatchHistory.ID) -> Bool {
         do {
             guard let record = try fetchRecords().first(where: { $0.id == id }) else {
                 return false
@@ -82,7 +69,20 @@ final class SwiftDataWatchlistRepository: WatchlistRepository {
         }
     }
 
-    private func fetchRecords() throws -> [WatchlistItemRecord] {
-        try modelContext.fetch(FetchDescriptor<WatchlistItemRecord>())
+    func deleteAll(stockCode: String) {
+        do {
+            let records = try fetchRecords().filter { $0.stockCode == stockCode }
+            for record in records {
+                modelContext.delete(record)
+            }
+
+            try modelContext.save()
+        } catch {
+            modelContext.rollback()
+        }
+    }
+
+    private func fetchRecords() throws -> [AlertMatchHistoryRecord] {
+        try modelContext.fetch(FetchDescriptor<AlertMatchHistoryRecord>())
     }
 }

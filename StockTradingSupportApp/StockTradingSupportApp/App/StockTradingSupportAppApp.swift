@@ -34,6 +34,15 @@ struct StockTradingSupportAppApp: App {
                     repository: SwiftDataWatchlistRepository(
                         modelContainer: sharedModelContainer
                     )
+                ),
+                investmentMemoRepository: SwiftDataInvestmentMemoRepository(
+                    modelContainer: sharedModelContainer
+                ),
+                alertRuleRepository: SwiftDataAlertRuleRepository(
+                    modelContainer: sharedModelContainer
+                ),
+                alertMatchHistoryRepository: SwiftDataAlertMatchHistoryRepository(
+                    modelContainer: sharedModelContainer
                 )
             )
         }

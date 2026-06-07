@@ -16,6 +16,7 @@ protocol AlertRuleRepository: AnyObject {
 
 enum AlertRuleRepositoryError: Error, Equatable {
     case ruleNotFound(UUID)
+    case persistenceFailure(String)
 }
 
 final class InMemoryAlertRuleRepository: AlertRuleRepository {

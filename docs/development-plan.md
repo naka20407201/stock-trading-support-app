@@ -338,28 +338,40 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 - 日経225モック銘柄マスタ自体はローカルJSONのままで、SwiftDataへの取り込みは未実装
 - 初回起動時のサンプルデータ投入方針は未実装
 
-## Step 10: SwiftData永続化の対象拡張
+## Step 10: SwiftData永続化の対象拡張（完了）
 
 目的:
 
 - ウォッチリスト以外のユーザーデータも、Repository境界を維持したままSwiftDataへ差し替える
 
-作業候補:
+完了内容:
 
-- 確認メモ永続化
-- ユーザー設定条件永続化
-- 条件一致履歴永続化
-- 既存の `InvestmentMemoRepository`、`AlertRuleRepository`、`AlertMatchHistoryRepository` のSwiftData実装
-- 条件一致履歴のスナップショット保存方針の確認
-- 初回起動時のサンプルデータ投入方針
-- 日経225モック銘柄マスタからSwiftDataモデルへ取り込む方針
-- マイグレーションしやすいモデル設計
-- 既存のViewModelとViewを大きく変えずに永続化層だけを交換できるか確認
+- `InvestmentMemoRecord` と `InvestmentMemo` の相互変換を追加済み
+- `AlertRuleRecord` と `AlertRule` の相互変換を追加済み
+- `AlertMatchHistoryRecord` と `AlertMatchHistory` の相互変換を追加済み
+- `SwiftDataInvestmentMemoRepository` を追加済み
+- `SwiftDataAlertRuleRepository` を追加済み
+- `SwiftDataAlertMatchHistoryRepository` を追加済み
+- アプリ本体の確認メモ、ユーザー設定条件、条件一致履歴をSwiftData Repositoryへ差し替え済み
+- View は SwiftData の `ModelContext` を直接操作せず、Repository / ViewModel 経由の構成を維持済み
+- `InMemoryInvestmentMemoRepository`、`InMemoryAlertRuleRepository`、`InMemoryAlertMatchHistoryRepository` はPreviewとテスト用に維持済み
+- 条件一致履歴は、条件名、対象指標、比較演算子、しきい値、観測値、データソースをスナップショットとして保存済み
+- `AlertRuleRecord`、`AlertMatchHistoryRecord` のRawValue復元に失敗してもクラッシュせず、復元できないRecordを読み飛ばす構成にした
+- SwiftData Repository の取得失敗時UI改善はTODOとして残し、後続でViewModelへエラーを伝える方針にした
+- 銘柄コードの一意性は現時点ではRepository側で抑制し、将来SwiftData側制約や移行時の重複統合方針を検討することを設計書に追記済み
+- Record変換、SwiftData Repository、ViewModel経由、RawValue復元失敗ケースのテストを追加済み
 
 注意:
 
 - 外部API、リアルタイム株価、通知送信、自動売買、証券口座連携、板情報取得はこのStepでも実装しない
 - View が SwiftData の `ModelContext` を直接操作しない構成を維持する
+
+残課題:
+
+- 日経225モック銘柄マスタ自体はローカルJSONのままで、SwiftDataへの取り込みは未実装
+- 初回起動時のサンプルデータ投入方針は未実装
+- SwiftData Repository の取得失敗時に、空状態と読み込み失敗をUI上で分ける改善は後続対応
+- SwiftData側の一意性制約やデータ移行時の重複統合方針は後続対応
 
 ## Step 11: モックデータから外部API連携への拡張
 
@@ -406,8 +418,8 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 
 ## 次の実装に進む前の注意点
 
-- Step 9 でウォッチリストのSwiftData永続化は完了したため、次は Step 10 で確認メモ、ユーザー設定条件、条件一致履歴のSwiftData化に進む
-- Repository境界を維持したまま、残りの保存実装だけを差し替えられるか確認する
+- Step 10 で確認メモ、ユーザー設定条件、条件一致履歴のSwiftData永続化は完了したため、次は Step 11 でモックデータから外部API連携への拡張検討に進む
+- 外部データ取得へ進む場合も、StockSnapshot / DataProvider / AlertRuleEvaluator の境界を維持する
 - SwiftDataを使う場合、モデル変更時の移行方針を早めに意識する
 - 日経225銘柄マスタは変更されるため、初期データの更新方法を後で設計する
 - UI文言は売買推奨に見えないようにレビューする
