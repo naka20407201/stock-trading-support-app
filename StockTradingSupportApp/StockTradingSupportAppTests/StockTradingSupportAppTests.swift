@@ -131,6 +131,23 @@ struct StockTradingSupportAppTests {
         #expect(viewModel.items == [item])
     }
 
+    @MainActor
+    @Test func watchlistViewModelDeletesCapturedIdsForMultipleSelection() {
+        let firstItem = makeWatchlistItem(code: "7203", name: "トヨタ自動車")
+        let secondItem = makeWatchlistItem(code: "6758", name: "ソニーグループ")
+        let thirdItem = makeWatchlistItem(code: "9432", name: "日本電信電話")
+        let viewModel = WatchlistViewModel(
+            repository: InMemoryWatchlistRepository(initialItems: [firstItem, secondItem, thirdItem])
+        )
+
+        let idsToDelete = [viewModel.items[0].id, viewModel.items[2].id]
+        for id in idsToDelete {
+            viewModel.delete(id: id)
+        }
+
+        #expect(viewModel.items == [secondItem])
+    }
+
     @Test func customStockInputValidatorRejectsInvalidCode() {
         let validator = CustomStockInputValidator()
         let input = CustomStockInput(
@@ -286,6 +303,213 @@ struct StockTradingSupportAppTests {
         #expect(viewModel.memos.isEmpty)
     }
 
+    @MainActor
+    @Test func investmentMemoViewModelDeletesCapturedIdsForMultipleSelection() {
+        let firstMemo = makeInvestmentMemo(
+            id: UUID(uuidString: "11111111-AAAA-BBBB-CCCC-111111111111")!,
+            stockCode: "7203",
+            title: "確認メモ1",
+            updatedAt: Date(timeIntervalSince1970: 3)
+        )
+        let secondMemo = makeInvestmentMemo(
+            id: UUID(uuidString: "22222222-AAAA-BBBB-CCCC-222222222222")!,
+            stockCode: "7203",
+            title: "確認メモ2",
+            updatedAt: Date(timeIntervalSince1970: 2)
+        )
+        let thirdMemo = makeInvestmentMemo(
+            id: UUID(uuidString: "33333333-AAAA-BBBB-CCCC-333333333333")!,
+            stockCode: "7203",
+            title: "確認メモ3",
+            updatedAt: Date(timeIntervalSince1970: 1)
+        )
+        let viewModel = InvestmentMemoViewModel(
+            stockCode: "7203",
+            repository: InMemoryInvestmentMemoRepository(initialMemos: [firstMemo, secondMemo, thirdMemo])
+        )
+
+        let idsToDelete = [viewModel.memos[0].id, viewModel.memos[2].id]
+        for id in idsToDelete {
+            viewModel.deleteMemo(id: id)
+        }
+
+        #expect(viewModel.memos == [secondMemo])
+    }
+
+    @Test func inMemoryAlertRuleRepositoryAddsRule() throws {
+        let repository = InMemoryAlertRuleRepository()
+        let rule = makeAlertRule(stockCode: "7203", name: "現在値の確認")
+
+        try repository.add(rule)
+        let fetchedRules = repository.fetchRules(stockCode: "7203")
+
+        #expect(fetchedRules == [rule])
+    }
+
+    @Test func inMemoryAlertRuleRepositoryFetchesOnlySpecifiedStockCode() throws {
+        let targetRule = makeAlertRule(
+            id: UUID(uuidString: "BBBBBBBB-1111-2222-3333-BBBBBBBBBBBB")!,
+            stockCode: "7203",
+            name: "トヨタ自動車の確認"
+        )
+        let otherRule = makeAlertRule(
+            id: UUID(uuidString: "CCCCCCCC-1111-2222-3333-CCCCCCCCCCCC")!,
+            stockCode: "6758",
+            name: "ソニーグループの確認"
+        )
+        let repository = InMemoryAlertRuleRepository(initialRules: [targetRule, otherRule])
+
+        let fetchedRules = repository.fetchRules(stockCode: "7203")
+
+        #expect(fetchedRules == [targetRule])
+    }
+
+    @Test func inMemoryAlertRuleRepositoryUpdatesRule() throws {
+        let rule = makeAlertRule(stockCode: "7203", name: "現在値の確認")
+        let repository = InMemoryAlertRuleRepository(initialRules: [rule])
+        let updatedRule = rule.updating(
+            name: "現在値の確認を更新",
+            comparisonOperator: .lessThanOrEqual,
+            thresholdValue: 2500,
+            isEnabled: false,
+            updatedAt: Date(timeIntervalSince1970: 100)
+        )
+
+        try repository.update(updatedRule)
+        let fetchedRule = repository.fetchRules(stockCode: "7203").first
+
+        #expect(fetchedRule == updatedRule)
+    }
+
+    @Test func inMemoryAlertRuleRepositoryDeletesRule() {
+        let rule = makeAlertRule(stockCode: "7203", name: "現在値の確認")
+        let repository = InMemoryAlertRuleRepository(initialRules: [rule])
+
+        let didDelete = repository.delete(id: rule.id)
+
+        #expect(didDelete)
+        #expect(repository.fetchRules(stockCode: "7203").isEmpty)
+    }
+
+    @MainActor
+    @Test func alertRuleViewModelAddsRule() throws {
+        let viewModel = AlertRuleViewModel(
+            stockCode: "7203",
+            repository: InMemoryAlertRuleRepository()
+        )
+
+        try viewModel.addRule(
+            name: "現在値の確認",
+            metric: .currentPrice,
+            comparisonOperator: .greaterThanOrEqual,
+            thresholdValueText: "3000",
+            isEnabled: true
+        )
+
+        #expect(viewModel.rules.count == 1)
+        #expect(viewModel.rules.first?.stockCode == "7203")
+        #expect(viewModel.rules.first?.thresholdValue == 3000)
+    }
+
+    @MainActor
+    @Test func alertRuleViewModelRejectsEmptyName() throws {
+        let viewModel = AlertRuleViewModel(
+            stockCode: "7203",
+            repository: InMemoryAlertRuleRepository()
+        )
+
+        do {
+            try viewModel.addRule(
+                name: " ",
+                metric: .currentPrice,
+                comparisonOperator: .greaterThanOrEqual,
+                thresholdValueText: "3000",
+                isEnabled: true
+            )
+            Issue.record("条件名が空の条件は追加しない必要があります。")
+        } catch let error as AlertRuleValidationError {
+            #expect(error == .emptyName)
+        } catch {
+            Issue.record("想定外のエラーです: \(error)")
+        }
+
+        #expect(viewModel.rules.isEmpty)
+    }
+
+    @MainActor
+    @Test func alertRuleViewModelRejectsNonNumericThreshold() throws {
+        let viewModel = AlertRuleViewModel(
+            stockCode: "7203",
+            repository: InMemoryAlertRuleRepository()
+        )
+
+        do {
+            try viewModel.addRule(
+                name: "現在値の確認",
+                metric: .currentPrice,
+                comparisonOperator: .greaterThanOrEqual,
+                thresholdValueText: "abc",
+                isEnabled: true
+            )
+            Issue.record("数値ではないしきい値は追加しない必要があります。")
+        } catch let error as AlertRuleValidationError {
+            #expect(error == .invalidThreshold)
+        } catch {
+            Issue.record("想定外のエラーです: \(error)")
+        }
+
+        #expect(viewModel.rules.isEmpty)
+    }
+
+    @MainActor
+    @Test func alertRuleViewModelRejectsNegativeThreshold() throws {
+        let viewModel = AlertRuleViewModel(
+            stockCode: "7203",
+            repository: InMemoryAlertRuleRepository()
+        )
+
+        do {
+            try viewModel.addRule(
+                name: "現在値の確認",
+                metric: .currentPrice,
+                comparisonOperator: .greaterThanOrEqual,
+                thresholdValueText: "-1",
+                isEnabled: true
+            )
+            Issue.record("0未満のしきい値は追加しない必要があります。")
+        } catch let error as AlertRuleValidationError {
+            #expect(error == .negativeThreshold)
+        } catch {
+            Issue.record("想定外のエラーです: \(error)")
+        }
+
+        #expect(viewModel.rules.isEmpty)
+    }
+
+    @MainActor
+    @Test func alertRuleViewModelTogglesEnabled() {
+        let rule = makeAlertRule(stockCode: "7203", name: "現在値の確認", isEnabled: true)
+        let viewModel = AlertRuleViewModel(
+            stockCode: "7203",
+            repository: InMemoryAlertRuleRepository(initialRules: [rule])
+        )
+
+        viewModel.toggleEnabled(id: rule.id)
+
+        #expect(viewModel.rules.first?.isEnabled == false)
+    }
+
+    @Test func comparisonOperatorDefinesInitialSixCases() {
+        #expect(ComparisonOperator.allCases == [
+            .greaterThan,
+            .greaterThanOrEqual,
+            .lessThan,
+            .lessThanOrEqual,
+            .equal,
+            .notEqual
+        ])
+    }
+
     private func makeWatchlistItem(code: String, name: String) -> WatchlistItem {
         WatchlistItem(
             id: UUID(uuidString: "AAAAAAAA-AAAA-AAAA-AAAA-\(code)\(code)\(code)")!,
@@ -311,6 +535,30 @@ struct StockTradingSupportAppTests {
             stockCode: stockCode,
             title: title,
             body: body,
+            createdAt: createdAt,
+            updatedAt: updatedAt
+        )
+    }
+
+    private func makeAlertRule(
+        id: UUID = UUID(uuidString: "AAAAAAAA-1111-2222-3333-EEEEEEEEEEEE")!,
+        stockCode: String,
+        name: String,
+        metric: AlertMetric = .currentPrice,
+        comparisonOperator: ComparisonOperator = .greaterThanOrEqual,
+        thresholdValue: Double = 3000,
+        isEnabled: Bool = true,
+        createdAt: Date = Date(timeIntervalSince1970: 0),
+        updatedAt: Date = Date(timeIntervalSince1970: 0)
+    ) -> AlertRule {
+        AlertRule(
+            id: id,
+            stockCode: stockCode,
+            name: name,
+            metric: metric,
+            comparisonOperator: comparisonOperator,
+            thresholdValue: thresholdValue,
+            isEnabled: isEnabled,
             createdAt: createdAt,
             updatedAt: updatedAt
         )

@@ -61,6 +61,8 @@
 - 将来的に複数条件の AND / OR 組み合わせを追加できるデータ構造にする
 - 条件種別は後から追加しやすいように、条件の種類、比較演算子、しきい値、対象指標を分離して持つ
 - 初期版では、基本比較演算子として greaterThan、greaterThanOrEqual、lessThan、lessThanOrEqual、equal、notEqual に対応する
+- 条件名は空不可、しきい値は数値、初期版のしきい値は0以上とする
+- 条件ごとに有効/無効を切り替えられる
 - withinDays は決算日などの日付データが必要になるため後続対応にする
 - ratioGreaterThanOrEqual は過去平均や基準値などの追加データ設計が必要になるため後続対応にする
 - 初期版の最優先指標は currentPrice とする

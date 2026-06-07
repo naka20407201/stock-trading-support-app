@@ -11,13 +11,16 @@ struct StockDetailView: View {
     let watchlistItem: WatchlistItem?
 
     @StateObject private var memoViewModel: InvestmentMemoViewModel
+    private let alertRuleRepository: any AlertRuleRepository
     @State private var editorPresentation: MemoEditorPresentation?
 
     init(
         watchlistItem: WatchlistItem? = nil,
-        memoRepository: any InvestmentMemoRepository = InMemoryInvestmentMemoRepository()
+        memoRepository: any InvestmentMemoRepository = InMemoryInvestmentMemoRepository(),
+        alertRuleRepository: any AlertRuleRepository = InMemoryAlertRuleRepository()
     ) {
         self.watchlistItem = watchlistItem
+        self.alertRuleRepository = alertRuleRepository
         _memoViewModel = StateObject(
             wrappedValue: InvestmentMemoViewModel(
                 stockCode: watchlistItem?.code ?? "",
@@ -31,17 +34,16 @@ struct StockDetailView: View {
             if let watchlistItem {
                 stockInformationSection(watchlistItem)
                 memoSection
+                AlertRuleListView(
+                    stockCode: watchlistItem.code,
+                    repository: alertRuleRepository
+                )
             } else {
                 Section("銘柄詳細") {
                     Text("現在は初期画面です")
-                    Text("ウォッチリストから遷移した場合、銘柄情報と確認メモを表示します。")
+                    Text("ウォッチリストから遷移した場合、銘柄情報、確認メモ、ユーザー設定条件を表示します。")
                         .foregroundStyle(.secondary)
                 }
-            }
-
-            Section("ユーザー設定条件") {
-                Label("条件設定は今後実装します", systemImage: "slider.horizontal.3")
-                Label("条件履歴は今後実装します", systemImage: "clock.arrow.circlepath")
             }
         }
         .navigationTitle(watchlistItem?.name ?? "銘柄詳細")
@@ -108,9 +110,10 @@ struct StockDetailView: View {
     }
 
     private func deleteMemos(at offsets: IndexSet) {
-        for index in offsets {
-            let memo = memoViewModel.memos[index]
-            memoViewModel.deleteMemo(id: memo.id)
+        let idsToDelete = offsets.map { memoViewModel.memos[$0].id }
+
+        for id in idsToDelete {
+            memoViewModel.deleteMemo(id: id)
         }
     }
 }
@@ -169,7 +172,8 @@ private struct InvestmentMemoRow: View {
                 industry: "輸送用機器",
                 isNikkei225: true
             ),
-            memoRepository: InMemoryInvestmentMemoRepository()
+            memoRepository: InMemoryInvestmentMemoRepository(),
+            alertRuleRepository: InMemoryAlertRuleRepository()
         )
     }
 }

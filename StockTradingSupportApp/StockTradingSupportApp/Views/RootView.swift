@@ -10,13 +10,16 @@ import SwiftUI
 struct RootView: View {
     @StateObject private var watchlistViewModel: WatchlistViewModel
     private let investmentMemoRepository: any InvestmentMemoRepository
+    private let alertRuleRepository: any AlertRuleRepository
 
     init(
         watchlistViewModel: WatchlistViewModel = WatchlistViewModel(),
-        investmentMemoRepository: any InvestmentMemoRepository = InMemoryInvestmentMemoRepository()
+        investmentMemoRepository: any InvestmentMemoRepository = InMemoryInvestmentMemoRepository(),
+        alertRuleRepository: any AlertRuleRepository = InMemoryAlertRuleRepository()
     ) {
         _watchlistViewModel = StateObject(wrappedValue: watchlistViewModel)
         self.investmentMemoRepository = investmentMemoRepository
+        self.alertRuleRepository = alertRuleRepository
     }
 
     var body: some View {
@@ -24,7 +27,8 @@ struct RootView: View {
             NavigationStack {
                 WatchlistView(
                     viewModel: watchlistViewModel,
-                    investmentMemoRepository: investmentMemoRepository
+                    investmentMemoRepository: investmentMemoRepository,
+                    alertRuleRepository: alertRuleRepository
                 )
             }
             .tabItem {

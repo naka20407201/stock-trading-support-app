@@ -10,6 +10,7 @@ import SwiftUI
 struct WatchlistView: View {
     @ObservedObject var viewModel: WatchlistViewModel
     let investmentMemoRepository: any InvestmentMemoRepository
+    let alertRuleRepository: any AlertRuleRepository
 
     var body: some View {
         List {
@@ -25,7 +26,8 @@ struct WatchlistView: View {
                         NavigationLink {
                             StockDetailView(
                                 watchlistItem: item,
-                                memoRepository: investmentMemoRepository
+                                memoRepository: investmentMemoRepository,
+                                alertRuleRepository: alertRuleRepository
                             )
                         } label: {
                             WatchlistItemRow(item: item)
@@ -37,7 +39,7 @@ struct WatchlistView: View {
 
             Section("今後の機能") {
                 Label("確認メモは銘柄詳細で記録できます", systemImage: "note.text")
-                Label("ユーザー設定条件は今後実装します", systemImage: "slider.horizontal.3")
+                Label("ユーザー設定条件は銘柄詳細で登録できます", systemImage: "slider.horizontal.3")
                 Label("条件履歴は今後実装します", systemImage: "clock.arrow.circlepath")
             }
         }
@@ -54,9 +56,10 @@ struct WatchlistView: View {
     }
 
     private func deleteItems(at offsets: IndexSet) {
-        for index in offsets {
-            let item = viewModel.items[index]
-            viewModel.delete(id: item.id)
+        let idsToDelete = offsets.map { viewModel.items[$0].id }
+
+        for id in idsToDelete {
+            viewModel.delete(id: id)
         }
     }
 }
@@ -85,7 +88,8 @@ private struct WatchlistItemRow: View {
     NavigationStack {
         WatchlistView(
             viewModel: WatchlistViewModel(),
-            investmentMemoRepository: InMemoryInvestmentMemoRepository()
+            investmentMemoRepository: InMemoryInvestmentMemoRepository(),
+            alertRuleRepository: InMemoryAlertRuleRepository()
         )
     }
 }

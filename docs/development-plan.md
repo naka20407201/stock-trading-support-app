@@ -208,7 +208,7 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 - 外部API、リアルタイム株価取得、自動売買、証券口座連携、板情報取得はこのStepでも実装しない
 - InMemoryInvestmentMemoRepository の状態はアプリ起動中の確認用であり、永続化は後続対応にする
 
-## Step 7: アラート条件モデル・条件設定画面
+## Step 7: アラート条件モデル・条件設定画面 完了
 
 目的:
 
@@ -217,15 +217,35 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 - 1つの銘柄には複数の AlertRule を登録できる
 - まだリアルタイム判定は行わず、まずは条件を登録できるところまで実装する
 
-作業候補:
+完了内容:
 
-- AlertRule モデル作成
-- 条件一覧画面
-- 条件作成・編集画面
-- 対象指標、比較演算子、しきい値の入力
-- 有効・無効切り替え
-- 条件一覧表示
-- 基本比較演算子 greaterThan、greaterThanOrEqual、lessThan、lessThanOrEqual、equal、notEqual の選択
+- `AlertMetric` を作成済み
+- 初期選択対象は `currentPrice` とし、将来 `per`、`pbr`、`volume` を選択対象へ広げやすい構成にした
+- `ComparisonOperator` を作成済み
+- 初期版の基本比較演算子 greaterThan、greaterThanOrEqual、lessThan、lessThanOrEqual、equal、notEqual を定義済み
+- `AlertRule` を通常の Swift 構造体として作成済み
+- `AlertRule` は id、stockCode、name、metric、comparisonOperator、thresholdValue、isEnabled、createdAt、updatedAt を保持する
+- stockCode によって WatchlistItem とユーザー設定条件を紐づける
+- `AlertRuleRepository` プロトコルを作成済み
+- `InMemoryAlertRuleRepository` を作成済み
+- 指定銘柄コードの条件一覧取得、条件追加、条件更新、条件削除の操作を用意済み
+- `AlertRuleViewModel` を作成済み
+- 条件名空不可、しきい値は数値、しきい値は0以上の入力チェックを追加済み
+- `AlertRuleEditorView` を作成し、条件追加と編集の両方で利用する構成にした
+- `AlertRuleListView` を作成し、StockDetailView に組み込んだ
+- 銘柄詳細画面で条件一覧、条件追加、条件編集、条件削除、有効/無効切り替えができるようにした
+- RootView 側で `InMemoryAlertRuleRepository` を保持し、WatchlistView 経由で StockDetailView に渡す構成にした
+- 複数件削除時の index ズレを避けるため、WatchlistView と StockDetailView の削除処理で先に削除対象IDを配列化するように修正済み
+- Repository、ViewModel、比較演算子、入力チェックのテストを追加済み
+- 将来 SwiftData 永続化へ差し替えやすいように、View は InMemory 実装を直接操作しない
+
+注意:
+
+- このStepでは条件の評価、通知送信、条件一致履歴の作成は実装しない
+- 条件はユーザー自身が設定する確認条件として扱う
+- アプリ側が条件内容を売買判断として解釈しない
+- 外部API、リアルタイム株価取得、自動売買、証券口座連携、板情報取得はこのStepでも実装しない
+- InMemoryAlertRuleRepository の状態はアプリ起動中の確認用であり、永続化は後続対応にする
 
 初期版で後続対応にする比較演算子:
 

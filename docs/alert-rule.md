@@ -17,18 +17,18 @@ AlertRule は、以下の要素を持つ想定です。
 | 項目 | 内容 |
 | --- | --- |
 | id | アラート条件ID |
-| watchlistItemId | 対象ウォッチリスト項目 |
+| stockCode | 対象銘柄コード |
 | name | 条件名 |
-| metricType | 対象指標 |
+| metric | 対象指標 |
 | comparisonOperator | 比較演算子 |
 | thresholdValue | しきい値 |
-| thresholdUnit | 円、%、倍、日など |
 | isEnabled | 有効フラグ |
-| memo | 条件に関するユーザーメモ |
 | createdAt | 作成日時 |
 | updatedAt | 更新日時 |
 
 将来の複合条件では、AlertRule を親として、AlertConditionNode のような子要素を持たせる構成に拡張できます。
+
+Step 7 では、条件の登録、編集、削除、有効/無効切り替えまでを実装します。条件の評価、通知送信、条件一致履歴作成は後続Stepで扱います。
 
 ## 条件種別の一覧
 

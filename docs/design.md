@@ -94,7 +94,8 @@
 - InvestmentMemoViewModel
 - InvestmentMemoEditorView
 - AlertRuleListView
-- AlertRuleEditView
+- AlertRuleViewModel
+- AlertRuleEditorView
 - AlertHistoryView
 - SettingsView
 
@@ -119,6 +120,8 @@ View は表示とユーザー操作の受け取りを担当します。条件判
 Step 5 時点では、RootView が `WatchlistViewModel` を保持し、WatchlistView と AddStockView に同じインスタンスを渡します。これにより、日経225候補または任意入力銘柄を AddStockView で追加したあと、WatchlistView の一覧に同じウォッチリスト状態を反映できます。View は InMemoryWatchlistRepository を直接操作せず、ViewModel 経由で追加、削除、重複確認を行います。
 
 Step 6 時点では、RootView が `InMemoryInvestmentMemoRepository` を保持し、WatchlistView 経由で StockDetailView に渡します。StockDetailView は銘柄コードごとの `InvestmentMemoViewModel` を生成し、確認メモの一覧取得、追加、更新、削除を ViewModel 経由で行います。View は InMemoryInvestmentMemoRepository を直接操作せず、将来 SwiftData やバックエンドへ差し替えやすい境界を維持します。
+
+Step 7 時点では、RootView が `InMemoryAlertRuleRepository` を保持し、WatchlistView 経由で StockDetailView に渡します。StockDetailView は `AlertRuleListView` を組み込み、AlertRuleListView が銘柄コードごとの `AlertRuleViewModel` を生成します。条件一覧取得、追加、更新、削除、有効/無効切り替えは ViewModel 経由で行い、View は InMemoryAlertRuleRepository を直接操作しません。このStepでは条件の評価、通知送信、条件一致履歴作成は行いません。
 
 ## 株価・指標値取得の抽象化方針
 
