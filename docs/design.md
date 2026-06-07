@@ -13,10 +13,11 @@
 - 確認メモ編集画面
 - アラート条件一覧画面
 - アラート条件作成・編集画面
-- 通知履歴画面
+- 条件評価・条件一致履歴セクション
+- 通知履歴画面（将来）
 - 設定画面
 
-初期版の最小構成では、ウォッチリスト画面、銘柄追加画面、銘柄詳細画面、確認メモ編集、アラート条件設定、通知履歴を優先します。
+初期版の最小構成では、ウォッチリスト画面、銘柄追加画面、銘柄詳細画面、確認メモ編集、アラート条件設定、条件評価、条件一致履歴を優先します。
 
 ## 画面遷移
 
@@ -24,11 +25,11 @@
 
 1. ウォッチリスト画面を起点にする
 2. ウォッチリストから銘柄詳細画面へ遷移する
-3. 銘柄詳細画面から確認メモ編集、アラート条件一覧、通知履歴へ遷移する
+3. 銘柄詳細画面から確認メモ編集、アラート条件一覧、条件評価、条件一致履歴へアクセスする
 4. ウォッチリスト画面から銘柄追加画面へ遷移する
 5. 銘柄追加画面では、日経225銘柄候補から追加、または任意銘柄を手入力して追加する
 6. アラート条件一覧から条件作成・編集画面へ遷移する
-7. 通知履歴画面では、履歴確認と確認済み状態の更新を行う
+7. 条件一致履歴は銘柄詳細画面内で確認し、全体履歴画面は将来追加する
 
 画面遷移の考え方:
 
@@ -76,8 +77,8 @@
 3. 有効な AlertRule を取得する
 4. AlertRule と StockSnapshot を AlertRuleEvaluator に渡す
 5. AlertRuleEvaluator は、条件一致、条件不一致、判定不能のいずれかを返す
-6. 判定結果が条件一致の場合、AlertHistory を作成する
-7. 通知機能が有効な場合は通知候補として扱う
+6. 判定結果が条件一致の場合、AlertMatchHistory を作成する
+7. 通知送信は後続対応とし、初期版では画面内の条件一致履歴として扱う
 
 ## SwiftUIでの構成案
 
@@ -96,7 +97,9 @@
 - AlertRuleListView
 - AlertRuleViewModel
 - AlertRuleEditorView
-- AlertHistoryView
+- AlertEvaluationView
+- AlertEvaluationViewModel
+- AlertMatchHistoryRepository
 - SettingsView
 
 View は表示とユーザー操作の受け取りを担当します。条件判定、データ変換、文言生成などは View 内に直接書き込まず、別の型やサービスに分離します。
@@ -110,7 +113,7 @@ View は表示とユーザー操作の受け取りを担当します。条件判
 - Model: SwiftDataで保存する永続化対象
 - Domain: アラート条件、指標、判定結果などのアプリ固有概念
 - StockSnapshot: 条件判定に渡す評価用データ。UIや外部APIレスポンスへ直接依存させない
-- AlertRuleEvaluator: AlertRule と StockSnapshot を受け取り、条件一致、条件不一致、判定不能を返す
+- AlertRuleEvaluator: AlertRule と StockSnapshot を受け取り、条件一致、条件不一致、判定不能、無効を返す
 - DataProvider相当: 手入力、モック、外部APIなどのデータ取得元を StockSnapshot に変換する境界
 - Service: 条件判定の呼び出し、履歴作成、通知候補作成
 - Repository相当: SwiftData、将来バックエンド、外部APIに差し替える場合の保存・取得境界
@@ -121,7 +124,9 @@ Step 5 時点では、RootView が `WatchlistViewModel` を保持し、Watchlist
 
 Step 6 時点では、RootView が `InMemoryInvestmentMemoRepository` を保持し、WatchlistView 経由で StockDetailView に渡します。StockDetailView は銘柄コードごとの `InvestmentMemoViewModel` を生成し、確認メモの一覧取得、追加、更新、削除を ViewModel 経由で行います。View は InMemoryInvestmentMemoRepository を直接操作せず、将来 SwiftData やバックエンドへ差し替えやすい境界を維持します。
 
-Step 7 時点では、RootView が `InMemoryAlertRuleRepository` を保持し、WatchlistView 経由で StockDetailView に渡します。StockDetailView は `AlertRuleListView` を組み込み、AlertRuleListView が銘柄コードごとの `AlertRuleViewModel` を生成します。条件一覧取得、追加、更新、削除、有効/無効切り替えは ViewModel 経由で行い、View は InMemoryAlertRuleRepository を直接操作しません。このStepでは条件の評価、通知送信、条件一致履歴作成は行いません。
+Step 7 時点では、RootView が `InMemoryAlertRuleRepository` を保持し、WatchlistView 経由で StockDetailView に渡します。StockDetailView は `AlertRuleListView` を組み込み、AlertRuleListView が銘柄コードごとの `AlertRuleViewModel` を生成します。条件一覧取得、追加、更新、削除、有効/無効切り替えは ViewModel 経由で行い、View は InMemoryAlertRuleRepository を直接操作しません。
+
+Step 8 時点では、RootView が `MockStockDataProvider` と `InMemoryAlertMatchHistoryRepository` も保持し、WatchlistView 経由で StockDetailView に渡します。StockDetailView は `AlertEvaluationView` を組み込み、`AlertEvaluationViewModel` が条件一覧取得、StockSnapshot取得、条件評価、条件一致履歴作成をまとめます。条件評価は固定モック株価で行い、通知送信はまだ行いません。
 
 ## 株価・指標値取得の抽象化方針
 
@@ -132,14 +137,16 @@ Step 7 時点では、RootView が `InMemoryAlertRuleRepository` を保持し、
 1. 手入力値またはモックデータを取得する
 2. ManualInputStockDataProvider または MockStockDataProvider 相当の境界で StockSnapshot を生成する
 3. StockSnapshot と AlertRule を AlertRuleEvaluator に渡す
-4. 条件一致、条件不一致、判定不能を返す
+4. 条件一致、条件不一致、判定不能、無効を返す
+5. 条件一致の場合のみ AlertMatchHistory を作成する
 
 将来版の流れ:
 
 1. 外部API、Web取得、リアルタイムデータなどから値を取得する
 2. ExternalApiStockDataProvider、WebStockDataProvider、RealtimeStockDataProvider 相当の境界で StockSnapshot を生成する
 3. StockSnapshot と AlertRule を AlertRuleEvaluator に渡す
-4. 条件一致、条件不一致、判定不能を返す
+4. 条件一致、条件不一致、判定不能、無効を返す
+5. 条件一致の場合のみ AlertMatchHistory を作成する
 
 この分離により、外部API連携を追加しても AlertRuleEvaluator の基本責務を変えずに済みます。データ不足や取得失敗は StockSnapshot の欠損として表現し、判定結果は「判定不能」として扱います。
 

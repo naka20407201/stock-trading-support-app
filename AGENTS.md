@@ -32,7 +32,7 @@
 - 手入力、モック、外部API、Web取得、リアルタイムデータは DataProvider 相当の境界で StockSnapshot に変換する。
 - 初期版では ManualInputStockDataProvider / MockStockDataProvider 相当を優先し、将来版では ExternalApiStockDataProvider / WebStockDataProvider / RealtimeStockDataProvider 相当に差し替えられるようにする。
 - 銘柄マスタとユーザーのウォッチリストを分離する。
-- StockMaster、WatchlistItem、InvestmentMemo、AlertRule、AlertHistory の責務を混ぜない。
+- StockMaster、WatchlistItem、InvestmentMemo、AlertRule、AlertMatchHistory の責務を混ぜない。
 - 初期版では、1つの AlertRule は1つの条件式だけを持つ。ただし、1つの銘柄に複数の AlertRule を登録できる。
 - 複数条件の AND / OR 組み合わせは後続対応とする。
 - 初期版の比較演算子は greaterThan、greaterThanOrEqual、lessThan、lessThanOrEqual、equal、notEqual に対応する。
@@ -75,7 +75,7 @@ UI、通知、履歴、サンプルデータ、テスト名、コメント、ド
 - 日経225銘柄は標準候補として扱い、ユーザーの監視対象とは別に管理する。
 - 日経225ローカルJSONには、可能であれば sourceName、asOfDate、stocks のようなメタ情報を持たせる。
 - 日経225以外の任意銘柄も、日経225銘柄と同じようにメモ、アラート条件、通知履歴を設定できるようにする。
-- 通知履歴には、条件変更後も意味が変わらないように条件内容のスナップショットを保存する。
+- 条件一致履歴には、条件変更後も意味が変わらないように条件内容のスナップショットを保存する。
 - 対象指標と比較演算子を分離し、同じ比較ロジックを currentPrice、per、pbr、volume などに使い回せるようにする。
 - 将来バックエンド化する可能性を考え、作成日時、更新日時、削除状態、サーバーIDの追加余地を意識する。
 

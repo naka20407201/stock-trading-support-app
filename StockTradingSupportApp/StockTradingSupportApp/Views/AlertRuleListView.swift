@@ -10,6 +10,7 @@ import SwiftUI
 struct AlertRuleListView: View {
     @StateObject private var viewModel: AlertRuleViewModel
     @State private var editorPresentation: AlertRuleEditorPresentation?
+    @State private var errorMessage: String?
 
     init(
         stockCode: String,
@@ -41,18 +42,24 @@ struct AlertRuleListView: View {
                 ForEach(viewModel.rules) { rule in
                     AlertRuleRow(
                         rule: rule,
+                        thresholdText: viewModel.formattedThresholdValue(for: rule),
                         onEdit: {
                             editorPresentation = .edit(rule)
                         },
                         onToggleEnabled: {
-                            viewModel.toggleEnabled(id: rule.id)
+                            toggleEnabled(id: rule.id)
                         }
                     )
                 }
                 .onDelete(perform: deleteRules)
             }
 
-            Label("条件の評価・通知・履歴作成は今後実装します", systemImage: "clock.arrow.circlepath")
+            if let errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+            }
+
+            Label("通知送信は今後実装します", systemImage: "bell.slash")
                 .foregroundStyle(.secondary)
         }
         .sheet(item: $editorPresentation) { presentation in
@@ -90,6 +97,15 @@ struct AlertRuleListView: View {
             viewModel.deleteRule(id: id)
         }
     }
+
+    private func toggleEnabled(id: AlertRule.ID) {
+        do {
+            try viewModel.toggleEnabled(id: id)
+            errorMessage = nil
+        } catch {
+            errorMessage = "条件の有効状態を更新できませんでした。"
+        }
+    }
 }
 
 private enum AlertRuleEditorPresentation: Identifiable {
@@ -117,6 +133,7 @@ private enum AlertRuleEditorPresentation: Identifiable {
 
 private struct AlertRuleRow: View {
     let rule: AlertRule
+    let thresholdText: String
     let onEdit: () -> Void
     let onToggleEnabled: () -> Void
 
@@ -151,15 +168,7 @@ private struct AlertRuleRow: View {
     }
 
     private var conditionDescription: String {
-        "\(rule.metric.displayName) \(rule.comparisonOperator.displayName) \(formattedThresholdValue) \(rule.metric.unitName)"
-    }
-
-    private var formattedThresholdValue: String {
-        if rule.thresholdValue.rounded() == rule.thresholdValue {
-            return String(Int(rule.thresholdValue))
-        }
-
-        return String(rule.thresholdValue)
+        "\(rule.metric.displayName) \(rule.comparisonOperator.displayName) \(thresholdText)"
     }
 }
 

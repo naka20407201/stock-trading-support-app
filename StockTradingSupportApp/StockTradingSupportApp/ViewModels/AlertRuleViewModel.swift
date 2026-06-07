@@ -93,14 +93,23 @@ final class AlertRuleViewModel: ObservableObject {
         refresh()
     }
 
-    func toggleEnabled(id: AlertRule.ID) {
+    func toggleEnabled(id: AlertRule.ID) throws {
         guard let existingRule = rules.first(where: { $0.id == id }) else {
-            return
+            throw AlertRuleRepositoryError.ruleNotFound(id)
         }
 
         let updatedRule = existingRule.updating(isEnabled: !existingRule.isEnabled)
-        _ = try? repository.update(updatedRule)
-        refresh()
+        do {
+            _ = try repository.update(updatedRule)
+            refresh()
+        } catch {
+            refresh()
+            throw error
+        }
+    }
+
+    func formattedThresholdValue(for rule: AlertRule) -> String {
+        rule.metric.formattedValue(rule.thresholdValue)
     }
 
     private func validate(name: String, thresholdValueText: String) throws -> Double {

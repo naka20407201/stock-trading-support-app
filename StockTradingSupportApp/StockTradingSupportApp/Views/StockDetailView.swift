@@ -12,15 +12,21 @@ struct StockDetailView: View {
 
     @StateObject private var memoViewModel: InvestmentMemoViewModel
     private let alertRuleRepository: any AlertRuleRepository
+    private let stockDataProvider: any StockDataProviding
+    private let alertMatchHistoryRepository: any AlertMatchHistoryRepository
     @State private var editorPresentation: MemoEditorPresentation?
 
     init(
         watchlistItem: WatchlistItem? = nil,
         memoRepository: any InvestmentMemoRepository = InMemoryInvestmentMemoRepository(),
-        alertRuleRepository: any AlertRuleRepository = InMemoryAlertRuleRepository()
+        alertRuleRepository: any AlertRuleRepository = InMemoryAlertRuleRepository(),
+        stockDataProvider: any StockDataProviding = MockStockDataProvider(),
+        alertMatchHistoryRepository: any AlertMatchHistoryRepository = InMemoryAlertMatchHistoryRepository()
     ) {
         self.watchlistItem = watchlistItem
         self.alertRuleRepository = alertRuleRepository
+        self.stockDataProvider = stockDataProvider
+        self.alertMatchHistoryRepository = alertMatchHistoryRepository
         _memoViewModel = StateObject(
             wrappedValue: InvestmentMemoViewModel(
                 stockCode: watchlistItem?.code ?? "",
@@ -37,6 +43,12 @@ struct StockDetailView: View {
                 AlertRuleListView(
                     stockCode: watchlistItem.code,
                     repository: alertRuleRepository
+                )
+                AlertEvaluationView(
+                    stockCode: watchlistItem.code,
+                    alertRuleRepository: alertRuleRepository,
+                    stockDataProvider: stockDataProvider,
+                    historyRepository: alertMatchHistoryRepository
                 )
             } else {
                 Section("銘柄詳細") {
@@ -173,7 +185,9 @@ private struct InvestmentMemoRow: View {
                 isNikkei225: true
             ),
             memoRepository: InMemoryInvestmentMemoRepository(),
-            alertRuleRepository: InMemoryAlertRuleRepository()
+            alertRuleRepository: InMemoryAlertRuleRepository(),
+            stockDataProvider: MockStockDataProvider(),
+            alertMatchHistoryRepository: InMemoryAlertMatchHistoryRepository()
         )
     }
 }

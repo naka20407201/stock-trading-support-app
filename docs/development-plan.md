@@ -271,44 +271,61 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 - 出来高の過去平均比較
 - 移動平均線、RSI、MACD など
 
-## Step 8: 条件判定ロジック
+## Step 8: 条件判定ロジック・モック評価（完了）
 
 目的:
 
 - View とデータ取得元から分離した条件判定処理を作る
+- 外部APIやリアルタイム取得を使わず、固定モック株価でユーザー設定条件を評価できるようにする
 
-作業候補:
+完了内容:
 
-- StockSnapshot 評価用データ構造の作成
-- ManualInputStockDataProvider 相当の境界作成
-- MockStockDataProvider 相当の境界作成
-- AlertRuleEvaluator の作成
-- AlertRuleEvaluator が StockSnapshot と AlertRule だけを入力として受け取る構成にする
-- matched / notMatched / unavailable の判定結果
-- モックデータまたは手入力値による判定
-- 条件一致時の履歴作成
+- `StockSnapshot` 評価用データ構造を作成済み
+- `StockDataProviding` と `MockStockDataProvider` を作成済み
+- `MockStockDataProvider` は代表銘柄コードに固定モック株価を返す
+- `AlertEvaluationResult` を作成し、matched / notMatched / unavailable / disabled を表現済み
+- `AlertRuleEvaluator` を作成し、`AlertRule` と `StockSnapshot` だけを入力として評価する構成にした
+- greaterThan、greaterThanOrEqual、lessThan、lessThanOrEqual、equal、notEqual の6種類を評価済み
+- 対象指標値がない場合は unavailable、無効条件は disabled として扱う
+- `AlertMatchHistory`、`AlertMatchHistoryRepository`、`InMemoryAlertMatchHistoryRepository` を作成済み
+- `AlertEvaluationViewModel` を作成し、条件一覧取得、Snapshot取得、評価、条件一致履歴作成を集約済み
+- 銘柄詳細画面に条件評価結果と条件一致履歴を表示済み
+- 条件に一致した場合のみ履歴を作成する
+- 同じ `snapshot.capturedAt` と条件IDの組み合わせでは、連続評価しても重複履歴を作成しない
+- `AlertRuleViewModel.toggleEnabled(id:)` はエラーを握りつぶさず `throws` で呼び出し側に伝える構成に修正済み
+- 条件値の表示は `AlertMetric.formattedValue(_:)` に寄せ、表示形式を指標ごとに整理済み
 
 注意:
 
 - 判定結果は売買判断ではなく条件一致の事実として扱う
 - データ不足時は「判定不能」とする
 - AlertRuleEvaluator は手入力画面、モックデータ、外部APIを直接参照しない
+- このStepでは通知送信は実装しない
+- 固定モック株価はローカル開発用の値であり、実際の株価や最新データを保証しない
 
-## Step 9: 通知履歴画面
+## Step 9: SwiftData永続化
 
 目的:
 
-- 条件一致履歴を確認できるようにする
+- Repository境界を維持したまま、InMemory実装からSwiftData永続化へ段階的に差し替える
 
 作業候補:
 
-- AlertHistory モデル作成
-- 履歴一覧画面
-- 銘柄別履歴表示
-- 条件内容、実値、しきい値、日時の表示
-- 確認済みフラグ更新
+- ウォッチリスト永続化
+- 確認メモ永続化
+- ユーザー設定条件永続化
+- 条件一致履歴永続化
+- Repository境界を維持したまま InMemory から SwiftData へ差し替え
+- 初回起動時のサンプルデータ投入方針
+- 日経225モック銘柄マスタからSwiftDataモデルへ取り込む方針
+- マイグレーションしやすいモデル設計
+- 既存のViewModelとViewを大きく変えずに永続化層だけを交換できるか確認
 
-初期版では、iPhone通知はモックまたは画面内表示でよいです。
+注意:
+
+- SwiftDataモデルを追加しても、銘柄マスタ、ウォッチリスト、確認メモ、ユーザー設定条件、条件一致履歴の責務を混ぜない
+- 条件一致履歴は条件変更後も意味が変わらないように、条件内容のスナップショットを保存する
+- 外部API、リアルタイム株価、通知送信、自動売買、証券口座連携、板情報取得はこのStepでも実装しない
 
 ## Step 10: モックデータから外部API連携への拡張
 
@@ -355,8 +372,8 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 
 ## 次の実装に進む前の注意点
 
-- Xcodeプロジェクトは作成済みのため、次は Step 3 の日経225モック銘柄マスタ作成に進む
-- 日経225モックJSONには sourceName、asOfDate、stocks のメタ情報を持たせる
+- Step 8 までのInMemory実装と固定モック評価を前提に、次は Step 9 のSwiftData永続化に進む
+- Repository境界を維持したまま、保存実装だけを差し替えられるか確認する
 - SwiftDataを使う場合、モデル変更時の移行方針を早めに意識する
 - 日経225銘柄マスタは変更されるため、初期データの更新方法を後で設計する
 - UI文言は売買推奨に見えないようにレビューする

@@ -487,14 +487,14 @@ struct StockTradingSupportAppTests {
     }
 
     @MainActor
-    @Test func alertRuleViewModelTogglesEnabled() {
+    @Test func alertRuleViewModelTogglesEnabled() throws {
         let rule = makeAlertRule(stockCode: "7203", name: "現在値の確認", isEnabled: true)
         let viewModel = AlertRuleViewModel(
             stockCode: "7203",
             repository: InMemoryAlertRuleRepository(initialRules: [rule])
         )
 
-        viewModel.toggleEnabled(id: rule.id)
+        try viewModel.toggleEnabled(id: rule.id)
 
         #expect(viewModel.rules.first?.isEnabled == false)
     }
@@ -508,6 +508,217 @@ struct StockTradingSupportAppTests {
             .equal,
             .notEqual
         ])
+    }
+
+    @Test func alertRuleEvaluatorEvaluatesInitialComparisonOperators() {
+        let evaluator = AlertRuleEvaluator()
+        let snapshot = makeStockSnapshot(stockCode: "7203", currentPrice: 100)
+        let cases: [(ComparisonOperator, Double)] = [
+            (.greaterThan, 99),
+            (.greaterThanOrEqual, 100),
+            (.lessThan, 101),
+            (.lessThanOrEqual, 100),
+            (.equal, 100.00005),
+            (.notEqual, 101)
+        ]
+
+        for (comparisonOperator, thresholdValue) in cases {
+            let rule = makeAlertRule(
+                stockCode: "7203",
+                name: comparisonOperator.rawValue,
+                comparisonOperator: comparisonOperator,
+                thresholdValue: thresholdValue
+            )
+
+            let result = evaluator.evaluate(rule: rule, snapshot: snapshot)
+
+            if case .matched(let observedValue) = result {
+                #expect(observedValue == 100)
+            } else {
+                Issue.record("\(comparisonOperator.rawValue) は条件に一致する必要があります。")
+            }
+        }
+    }
+
+    @Test func alertRuleEvaluatorReturnsNotMatched() {
+        let evaluator = AlertRuleEvaluator()
+        let snapshot = makeStockSnapshot(stockCode: "7203", currentPrice: 100)
+        let rule = makeAlertRule(
+            stockCode: "7203",
+            name: "現在値の確認",
+            comparisonOperator: .greaterThan,
+            thresholdValue: 100
+        )
+
+        let result = evaluator.evaluate(rule: rule, snapshot: snapshot)
+
+        if case .notMatched(let observedValue) = result {
+            #expect(observedValue == 100)
+        } else {
+            Issue.record("しきい値より大きくない場合は条件未一致になる必要があります。")
+        }
+    }
+
+    @Test func alertRuleEvaluatorReturnsUnavailableWhenMetricValueIsMissing() {
+        let evaluator = AlertRuleEvaluator()
+        let snapshot = makeStockSnapshot(stockCode: "7203", currentPrice: 100)
+        let rule = makeAlertRule(
+            stockCode: "7203",
+            name: "PERの確認",
+            metric: .per,
+            comparisonOperator: .greaterThanOrEqual,
+            thresholdValue: 10
+        )
+
+        let result = evaluator.evaluate(rule: rule, snapshot: snapshot)
+
+        if case .unavailable(let reason) = result {
+            #expect(reason.contains("PER"))
+        } else {
+            Issue.record("対象指標値がない場合は評価できない結果になる必要があります。")
+        }
+    }
+
+    @Test func alertRuleEvaluatorReturnsDisabledForDisabledRule() {
+        let evaluator = AlertRuleEvaluator()
+        let snapshot = makeStockSnapshot(stockCode: "7203", currentPrice: 100)
+        let rule = makeAlertRule(
+            stockCode: "7203",
+            name: "現在値の確認",
+            isEnabled: false
+        )
+
+        let result = evaluator.evaluate(rule: rule, snapshot: snapshot)
+
+        #expect(result == .disabled)
+    }
+
+    @Test func mockStockDataProviderReturnsRepresentativeSnapshot() {
+        let capturedAt = Date(timeIntervalSince1970: 100)
+        let provider = MockStockDataProvider(capturedAt: capturedAt)
+
+        let snapshot = provider.snapshot(for: "7203")
+
+        #expect(snapshot?.stockCode == "7203")
+        #expect(snapshot?.currentPrice == 3200)
+        #expect(snapshot?.capturedAt == capturedAt)
+        #expect(snapshot?.sourceName == "固定モック株価")
+    }
+
+    @Test func mockStockDataProviderReturnsNilForUndefinedCode() {
+        let provider = MockStockDataProvider()
+
+        let snapshot = provider.snapshot(for: "0000")
+
+        #expect(snapshot == nil)
+    }
+
+    @Test func inMemoryAlertMatchHistoryRepositoryAddsHistory() throws {
+        let repository = InMemoryAlertMatchHistoryRepository()
+        let history = makeAlertMatchHistory(stockCode: "7203")
+
+        try repository.add(history)
+        let fetchedHistories = repository.fetchHistories(stockCode: "7203")
+
+        #expect(fetchedHistories == [history])
+    }
+
+    @Test func inMemoryAlertMatchHistoryRepositoryFetchesOnlySpecifiedStockCode() throws {
+        let targetHistory = makeAlertMatchHistory(
+            id: UUID(uuidString: "BBBBBBBB-9999-8888-7777-BBBBBBBBBBBB")!,
+            stockCode: "7203"
+        )
+        let otherHistory = makeAlertMatchHistory(
+            id: UUID(uuidString: "CCCCCCCC-9999-8888-7777-CCCCCCCCCCCC")!,
+            stockCode: "6758"
+        )
+        let repository = InMemoryAlertMatchHistoryRepository(initialHistories: [targetHistory, otherHistory])
+
+        let fetchedHistories = repository.fetchHistories(stockCode: "7203")
+
+        #expect(fetchedHistories == [targetHistory])
+    }
+
+    @Test func inMemoryAlertMatchHistoryRepositoryDeletesHistory() {
+        let history = makeAlertMatchHistory(stockCode: "7203")
+        let repository = InMemoryAlertMatchHistoryRepository(initialHistories: [history])
+
+        let didDelete = repository.delete(id: history.id)
+
+        #expect(didDelete)
+        #expect(repository.fetchHistories(stockCode: "7203").isEmpty)
+    }
+
+    @Test func inMemoryAlertMatchHistoryRepositoryDeletesAllHistoriesForStockCode() {
+        let targetHistory = makeAlertMatchHistory(
+            id: UUID(uuidString: "BBBBBBBB-9999-8888-7777-BBBBBBBBBBBB")!,
+            stockCode: "7203"
+        )
+        let otherHistory = makeAlertMatchHistory(
+            id: UUID(uuidString: "CCCCCCCC-9999-8888-7777-CCCCCCCCCCCC")!,
+            stockCode: "6758"
+        )
+        let repository = InMemoryAlertMatchHistoryRepository(initialHistories: [targetHistory, otherHistory])
+
+        repository.deleteAll(stockCode: "7203")
+
+        #expect(repository.fetchHistories(stockCode: "7203").isEmpty)
+        #expect(repository.fetchHistories(stockCode: "6758") == [otherHistory])
+    }
+
+    @MainActor
+    @Test func alertEvaluationViewModelEvaluatesRulesAndCreatesHistory() {
+        let capturedAt = Date(timeIntervalSince1970: 1000)
+        let rule = makeAlertRule(
+            stockCode: "7203",
+            name: "現在値の確認",
+            comparisonOperator: .greaterThanOrEqual,
+            thresholdValue: 3000
+        )
+        let historyRepository = InMemoryAlertMatchHistoryRepository()
+        let viewModel = AlertEvaluationViewModel(
+            stockCode: "7203",
+            alertRuleRepository: InMemoryAlertRuleRepository(initialRules: [rule]),
+            stockDataProvider: MockStockDataProvider(
+                capturedAt: capturedAt,
+                mockValues: ["7203": 3200]
+            ),
+            historyRepository: historyRepository
+        )
+
+        viewModel.evaluate()
+
+        #expect(viewModel.snapshot?.currentPrice == 3200)
+        #expect(viewModel.evaluations.count == 1)
+        #expect(viewModel.evaluations.first?.result == .matched(observedValue: 3200))
+        #expect(viewModel.histories.count == 1)
+        #expect(viewModel.histories.first?.alertRuleId == rule.id)
+        #expect(viewModel.histories.first?.matchedAt == capturedAt)
+    }
+
+    @MainActor
+    @Test func alertEvaluationViewModelDoesNotDuplicateHistoryForSameSnapshotAndRule() {
+        let capturedAt = Date(timeIntervalSince1970: 1000)
+        let rule = makeAlertRule(
+            stockCode: "7203",
+            name: "現在値の確認",
+            comparisonOperator: .greaterThanOrEqual,
+            thresholdValue: 3000
+        )
+        let viewModel = AlertEvaluationViewModel(
+            stockCode: "7203",
+            alertRuleRepository: InMemoryAlertRuleRepository(initialRules: [rule]),
+            stockDataProvider: MockStockDataProvider(
+                capturedAt: capturedAt,
+                mockValues: ["7203": 3200]
+            ),
+            historyRepository: InMemoryAlertMatchHistoryRepository()
+        )
+
+        viewModel.evaluate()
+        viewModel.evaluate()
+
+        #expect(viewModel.histories.count == 1)
     }
 
     private func makeWatchlistItem(code: String, name: String) -> WatchlistItem {
@@ -561,6 +772,52 @@ struct StockTradingSupportAppTests {
             isEnabled: isEnabled,
             createdAt: createdAt,
             updatedAt: updatedAt
+        )
+    }
+
+    private func makeStockSnapshot(
+        stockCode: String,
+        currentPrice: Double?,
+        per: Double? = nil,
+        pbr: Double? = nil,
+        volume: Double? = nil,
+        capturedAt: Date = Date(timeIntervalSince1970: 0),
+        sourceName: String = "テストデータ"
+    ) -> StockSnapshot {
+        StockSnapshot(
+            stockCode: stockCode,
+            currentPrice: currentPrice,
+            per: per,
+            pbr: pbr,
+            volume: volume,
+            capturedAt: capturedAt,
+            sourceName: sourceName
+        )
+    }
+
+    private func makeAlertMatchHistory(
+        id: UUID = UUID(uuidString: "AAAAAAAA-9999-8888-7777-EEEEEEEEEEEE")!,
+        stockCode: String,
+        alertRuleId: UUID = UUID(uuidString: "AAAAAAAA-1111-2222-3333-EEEEEEEEEEEE")!,
+        alertRuleName: String = "現在値の確認",
+        metric: AlertMetric = .currentPrice,
+        comparisonOperator: ComparisonOperator = .greaterThanOrEqual,
+        thresholdValue: Double = 3000,
+        observedValue: Double = 3200,
+        matchedAt: Date = Date(timeIntervalSince1970: 0),
+        sourceName: String = "テストデータ"
+    ) -> AlertMatchHistory {
+        AlertMatchHistory(
+            id: id,
+            stockCode: stockCode,
+            alertRuleId: alertRuleId,
+            alertRuleName: alertRuleName,
+            metric: metric,
+            comparisonOperator: comparisonOperator,
+            thresholdValue: thresholdValue,
+            observedValue: observedValue,
+            matchedAt: matchedAt,
+            sourceName: sourceName
         )
     }
 

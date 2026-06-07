@@ -41,9 +41,27 @@ enum AlertMetric: String, CaseIterable, Identifiable {
         }
     }
 
+    func formattedValue(_ value: Double) -> String {
+        switch self {
+        case .currentPrice:
+            return "\(Int(value.rounded()))円"
+        case .per, .pbr:
+            return "\(Self.decimalFormatter.string(from: NSNumber(value: value)) ?? String(value))倍"
+        case .volume:
+            return "\(Int(value.rounded()))株"
+        }
+    }
+
     static var selectableCases: [AlertMetric] {
         [.currentPrice]
     }
+
+    private static let decimalFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.minimumFractionDigits = 1
+        formatter.maximumFractionDigits = 2
+        return formatter
+    }()
 }
 
 enum ComparisonOperator: String, CaseIterable, Identifiable {

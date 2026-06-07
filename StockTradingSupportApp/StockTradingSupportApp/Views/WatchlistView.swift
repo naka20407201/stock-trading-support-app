@@ -11,6 +11,8 @@ struct WatchlistView: View {
     @ObservedObject var viewModel: WatchlistViewModel
     let investmentMemoRepository: any InvestmentMemoRepository
     let alertRuleRepository: any AlertRuleRepository
+    let stockDataProvider: any StockDataProviding
+    let alertMatchHistoryRepository: any AlertMatchHistoryRepository
 
     var body: some View {
         List {
@@ -27,7 +29,9 @@ struct WatchlistView: View {
                             StockDetailView(
                                 watchlistItem: item,
                                 memoRepository: investmentMemoRepository,
-                                alertRuleRepository: alertRuleRepository
+                                alertRuleRepository: alertRuleRepository,
+                                stockDataProvider: stockDataProvider,
+                                alertMatchHistoryRepository: alertMatchHistoryRepository
                             )
                         } label: {
                             WatchlistItemRow(item: item)
@@ -40,7 +44,7 @@ struct WatchlistView: View {
             Section("今後の機能") {
                 Label("確認メモは銘柄詳細で記録できます", systemImage: "note.text")
                 Label("ユーザー設定条件は銘柄詳細で登録できます", systemImage: "slider.horizontal.3")
-                Label("条件履歴は今後実装します", systemImage: "clock.arrow.circlepath")
+                Label("条件一致履歴は銘柄詳細で確認できます", systemImage: "clock.arrow.circlepath")
             }
         }
         .navigationTitle("ウォッチリスト")
@@ -89,7 +93,9 @@ private struct WatchlistItemRow: View {
         WatchlistView(
             viewModel: WatchlistViewModel(),
             investmentMemoRepository: InMemoryInvestmentMemoRepository(),
-            alertRuleRepository: InMemoryAlertRuleRepository()
+            alertRuleRepository: InMemoryAlertRuleRepository(),
+            stockDataProvider: MockStockDataProvider(),
+            alertMatchHistoryRepository: InMemoryAlertMatchHistoryRepository()
         )
     }
 }
