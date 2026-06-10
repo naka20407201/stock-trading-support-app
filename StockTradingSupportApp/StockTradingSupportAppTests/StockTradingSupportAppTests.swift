@@ -1066,6 +1066,59 @@ struct StockTradingSupportAppTests {
         #expect(snapshot == nil)
     }
 
+    @Test func externalStockSnapshotResponseConvertsToStockSnapshot() {
+        let capturedAt = Date(timeIntervalSince1970: 100)
+        let response = ExternalStockSnapshotResponse(
+            stockCode: "7203",
+            currentPrice: 3210,
+            per: 12.5,
+            pbr: 1.1,
+            volume: 2_000_000,
+            capturedAt: capturedAt,
+            sourceName: "外部API疑似データ"
+        )
+
+        let snapshot = response.stockSnapshot(capturedAt: Date(timeIntervalSince1970: 200))
+
+        #expect(snapshot?.stockCode == "7203")
+        #expect(snapshot?.currentPrice == 3210)
+        #expect(snapshot?.per == 12.5)
+        #expect(snapshot?.pbr == 1.1)
+        #expect(snapshot?.volume == 2_000_000)
+        #expect(snapshot?.capturedAt == capturedAt)
+        #expect(snapshot?.sourceName == "外部API疑似データ")
+    }
+
+    @Test func externalStockSnapshotResponseAllowsPartialMetricValues() {
+        let response = ExternalStockSnapshotResponse(
+            stockCode: "7203",
+            currentPrice: nil,
+            per: 12.5,
+            pbr: nil,
+            volume: nil
+        )
+
+        let snapshot = response.stockSnapshot(capturedAt: Date(timeIntervalSince1970: 100))
+
+        #expect(snapshot?.currentPrice == nil)
+        #expect(snapshot?.per == 12.5)
+        #expect(snapshot?.pbr == nil)
+        #expect(snapshot?.volume == nil)
+        #expect(snapshot?.sourceName == "外部API疑似データ")
+    }
+
+    @Test func externalStockSnapshotResponseReturnsNilWhenAllMetricsAreMissing() {
+        let response = ExternalStockSnapshotResponse(
+            stockCode: "7203",
+            currentPrice: nil,
+            per: nil,
+            pbr: nil,
+            volume: nil
+        )
+
+        #expect(response.stockSnapshot(capturedAt: Date(timeIntervalSince1970: 100)) == nil)
+    }
+
     @Test func inMemoryAlertMatchHistoryRepositoryAddsHistory() throws {
         let repository = InMemoryAlertMatchHistoryRepository()
         let history = makeAlertMatchHistory(stockCode: "7203")
@@ -1352,13 +1405,177 @@ struct StockTradingSupportAppTests {
         #expect(snapshot?.sourceName == "固定モック株価")
     }
 
-    @Test func externalApiStockDataProviderIsStubbed() {
-        let provider = ExternalApiStockDataProvider()
+    @Test func externalApiStockDataProviderReturnsSnapshotFromPseudoResponse() {
+        let capturedAt = Date(timeIntervalSince1970: 100)
+        let provider = ExternalApiStockDataProvider(
+            responses: [
+                "7203": ExternalStockSnapshotResponse(
+                    stockCode: "7203",
+                    currentPrice: 3210,
+                    per: 12.5,
+                    pbr: 1.1,
+                    volume: 2_000_000,
+                    sourceName: "外部API疑似データ"
+                )
+            ],
+            currentDate: { capturedAt }
+        )
 
         let snapshot = provider.snapshot(for: "7203")
 
-        #expect(snapshot == nil)
-        #expect(provider.lastError == .notImplemented)
+        #expect(snapshot?.stockCode == "7203")
+        #expect(snapshot?.currentPrice == 3210)
+        #expect(snapshot?.capturedAt == capturedAt)
+        #expect(snapshot?.sourceName == "外部API疑似データ")
+        #expect(provider.lastError == nil)
+    }
+
+    @Test func externalApiStockDataProviderReturnsNilForMissingPseudoResponse() {
+        let provider = ExternalApiStockDataProvider()
+
+        #expect(provider.snapshot(for: "7203") == nil)
+        #expect(provider.lastError == nil)
+    }
+
+    @Test func externalApiStockDataProviderReportsMissingValues() {
+        let provider = ExternalApiStockDataProvider(
+            responses: [
+                "7203": ExternalStockSnapshotResponse(
+                    stockCode: "7203",
+                    currentPrice: nil,
+                    per: nil,
+                    pbr: nil,
+                    volume: nil
+                )
+            ]
+        )
+
+        #expect(provider.snapshot(for: "7203") == nil)
+        #expect(provider.lastError == .missingRequiredValues)
+    }
+
+    @Test func compositeStockDataProviderPrefersManualInputOverExternalAndMock() {
+        let manualInput = makeManualStockSnapshotInput(stockCode: "7203", currentPrice: 1234)
+        let provider = CompositeStockDataProvider(providers: [
+            ManualInputStockDataProvider(
+                repository: InMemoryManualStockSnapshotInputRepository(initialInputs: [manualInput])
+            ),
+            ExternalApiStockDataProvider(
+                responses: [
+                    "7203": ExternalStockSnapshotResponse(stockCode: "7203", currentPrice: 2222)
+                ]
+            ),
+            MockStockDataProvider(
+                capturedAt: Date(timeIntervalSince1970: 100),
+                mockValues: ["7203": 3200]
+            )
+        ])
+
+        let snapshot = provider.snapshot(for: "7203")
+
+        #expect(snapshot?.currentPrice == 1234)
+        #expect(snapshot?.sourceName == "手入力評価データ")
+    }
+
+    @Test func compositeStockDataProviderUsesExternalWhenManualInputIsMissing() {
+        let provider = CompositeStockDataProvider(providers: [
+            ManualInputStockDataProvider(
+                repository: InMemoryManualStockSnapshotInputRepository()
+            ),
+            ExternalApiStockDataProvider(
+                responses: [
+                    "7203": ExternalStockSnapshotResponse(
+                        stockCode: "7203",
+                        currentPrice: 2222,
+                        sourceName: "外部API疑似データ"
+                    )
+                ]
+            ),
+            MockStockDataProvider(
+                capturedAt: Date(timeIntervalSince1970: 100),
+                mockValues: ["7203": 3200]
+            )
+        ])
+
+        let snapshot = provider.snapshot(for: "7203")
+
+        #expect(snapshot?.currentPrice == 2222)
+        #expect(snapshot?.sourceName == "外部API疑似データ")
+    }
+
+    @Test func compositeStockDataProviderUsesExternalWhenManualInputIsEmpty() {
+        let emptyManualInput = makeManualStockSnapshotInput(
+            stockCode: "7203",
+            currentPrice: nil,
+            per: nil,
+            pbr: nil,
+            volume: nil
+        )
+        let provider = CompositeStockDataProvider(providers: [
+            ManualInputStockDataProvider(
+                repository: InMemoryManualStockSnapshotInputRepository(initialInputs: [emptyManualInput])
+            ),
+            ExternalApiStockDataProvider(
+                responses: [
+                    "7203": ExternalStockSnapshotResponse(
+                        stockCode: "7203",
+                        currentPrice: 2222,
+                        sourceName: "外部API疑似データ"
+                    )
+                ]
+            ),
+            MockStockDataProvider(
+                capturedAt: Date(timeIntervalSince1970: 100),
+                mockValues: ["7203": 3200]
+            )
+        ])
+
+        let snapshot = provider.snapshot(for: "7203")
+
+        #expect(snapshot?.currentPrice == 2222)
+        #expect(snapshot?.sourceName == "外部API疑似データ")
+    }
+
+    @Test func compositeStockDataProviderFallsBackToMockWhenExternalResponseIsMissing() {
+        let provider = CompositeStockDataProvider(providers: [
+            ManualInputStockDataProvider(
+                repository: InMemoryManualStockSnapshotInputRepository()
+            ),
+            ExternalApiStockDataProvider(),
+            MockStockDataProvider(
+                capturedAt: Date(timeIntervalSince1970: 100),
+                mockValues: ["7203": 3200]
+            )
+        ])
+
+        let snapshot = provider.snapshot(for: "7203")
+
+        #expect(snapshot?.currentPrice == 3200)
+        #expect(snapshot?.sourceName == "固定モック株価")
+    }
+
+    @Test func alertRuleEvaluatorEvaluatesExternalApiSnapshot() throws {
+        let response = ExternalStockSnapshotResponse(
+            stockCode: "7203",
+            currentPrice: 3210,
+            sourceName: "外部API疑似データ"
+        )
+        let snapshot = try #require(response.stockSnapshot(capturedAt: Date(timeIntervalSince1970: 100)))
+        let rule = makeAlertRule(
+            stockCode: "7203",
+            name: "外部API疑似データの確認",
+            metric: .currentPrice,
+            comparisonOperator: .greaterThanOrEqual,
+            thresholdValue: 3000
+        )
+
+        let result = AlertRuleEvaluator().evaluate(rule: rule, snapshot: snapshot)
+
+        if case .matched(let observedValue) = result {
+            #expect(observedValue == 3210)
+        } else {
+            Issue.record("外部API由来のStockSnapshotでも既存条件を評価できる必要があります。")
+        }
     }
 
     @MainActor

@@ -63,7 +63,7 @@ struct WatchlistView: View {
             } label: {
                 Image(systemName: "plus")
             }
-            .accessibilityLabel("銘柄を追加")
+            .accessibilityLabel("ウォッチリストに銘柄を追加")
         }
         .onAppear(perform: viewModel.refresh)
     }

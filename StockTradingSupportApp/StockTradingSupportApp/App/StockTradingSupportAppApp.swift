@@ -33,12 +33,13 @@ struct StockTradingSupportAppApp: App {
             let manualStockSnapshotInputRepository = SwiftDataManualStockSnapshotInputRepository(
                 modelContainer: sharedModelContainer
             )
-            let stockDataProvider = FallbackStockDataProvider(
-                primaryProvider: ManualInputStockDataProvider(
+            let stockDataProvider = CompositeStockDataProvider(providers: [
+                ManualInputStockDataProvider(
                     repository: manualStockSnapshotInputRepository
                 ),
-                fallbackProvider: MockStockDataProvider()
-            )
+                ExternalApiStockDataProvider(),
+                MockStockDataProvider()
+            ])
 
             RootView(
                 watchlistViewModel: WatchlistViewModel(

@@ -260,6 +260,29 @@ StockSnapshot は、条件判定に渡す評価用データです。SwiftDataで
 - 欠損値がある場合、Evaluator は推測せず判定不能として扱う
 - UI表示用データやAPIレスポンスを直接条件判定に渡さない
 
+## ExternalStockSnapshotResponse
+
+ExternalStockSnapshotResponse は、Step 12 で追加する外部APIレスポンス相当の中間DTOです。実際のAPIレスポンス形式に強く依存せず、外部データを `StockSnapshot` に変換する手前の共通形として扱います。
+
+| 項目 | 内容 |
+| --- | --- |
+| stockCode | 銘柄コード。必須 |
+| currentPrice | 現在値または終値相当。任意 |
+| per | PER。任意 |
+| pbr | PBR。任意 |
+| volume | 出来高。任意 |
+| capturedAt | 取得日時。任意 |
+| sourceName | 取得元名。任意 |
+
+設計メモ:
+
+- `AlertRuleEvaluator` は `ExternalStockSnapshotResponse` を直接扱わない。
+- `ExternalApiStockDataProvider` が `ExternalStockSnapshotResponse` を `StockSnapshot` へ変換する。
+- currentPrice、per、pbr、volume がすべて nil の場合は、有効な `StockSnapshot` として扱わない。
+- capturedAt が nil の場合は、変換時点の日時を `StockSnapshot.capturedAt` として使う。
+- sourceName が nil または空の場合は「外部API疑似データ」を使う。
+- 実際のAPI別レスポンスは、必要に応じてAPI固有DTOからこのDTOへ変換する。
+
 ## ManualStockSnapshotInput
 
 ManualStockSnapshotInput は、銘柄ごとにユーザーが手入力した評価用データです。条件判定前に StockSnapshot へ変換し、AlertRuleEvaluator へ渡します。
@@ -309,7 +332,7 @@ Step 11 の実装:
 - 既存の `mockValues: [String: Double]` 形式も currentPrice 用の簡易指定として利用できる
 - `ManualInputStockDataProvider` は、`ManualStockSnapshotInputRepository` から取得した手入力評価データを StockSnapshot へ変換する
 - `ManualInputStockDataProvider` は、取得した手入力評価データの全項目が nil の場合は Snapshot を返さない
-- `ExternalApiStockDataProvider` は外部API連携に向けたスタブとして用意し、現時点ではネットワーク通信を行わず Snapshot を返さない
+- `ExternalApiStockDataProvider` は外部API連携に向けたスタブとして用意し、Step 11 時点ではネットワーク通信を行わず Snapshot を返さない
 - `FallbackStockDataProvider` は、現時点では有効な手入力評価データがある場合は手入力値を優先し、未登録または全項目空欄の場合は固定モック値を返す
 - 将来の優先順位は、手入力評価データ、外部API取得値、開発用固定モック値の順とする
 - 条件設定画面では `currentPrice`、`per`、`pbr`、`volume` を選択できる
@@ -317,6 +340,15 @@ Step 11 の実装:
 - AlertRuleEvaluator は引き続き StockSnapshot の `value(for:)` を通して対象指標値を取得し、DataProviderの種類には依存しない
 - 外部API、手入力、リアルタイム取得を追加する場合も、まず StockSnapshot に変換してから評価する
 - APIキー未設定、取得失敗、レート制限、欠損値はDataProvider層で検知し、ViewModel/UIでは中立的なエラーまたは判定不能として扱う
+
+Step 12 の実装:
+
+- `ExternalStockSnapshotResponse` を追加し、外部APIレスポンス相当の値を `StockSnapshot` に変換できるようにする
+- `ExternalApiStockDataProvider` はネットワーク通信を行わず、ローカルに渡された疑似レスポンスから `StockSnapshot` を返す
+- `CompositeStockDataProvider` は `ManualInputStockDataProvider`、`ExternalApiStockDataProvider`、`MockStockDataProvider` を順番に試す
+- 有効な手入力評価データがある場合は手入力値を優先し、なければ外部API疑似データ、固定モック値の順にフォールバックする
+- 全指標が nil の外部API疑似レスポンスは有効な `StockSnapshot` として扱わず、次のProviderへフォールバックする
+- 実通信、APIキー保存、認証、レート制限対応、キャッシュ、バックグラウンド更新は後続対応にする
 
 将来版:
 

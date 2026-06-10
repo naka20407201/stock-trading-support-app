@@ -35,15 +35,122 @@ enum ExternalStockDataProviderError: Error, Equatable {
     case missingRequiredValues
 }
 
+struct ExternalStockSnapshotResponse: Equatable {
+    let stockCode: String
+    let currentPrice: Double?
+    let per: Double?
+    let pbr: Double?
+    let volume: Double?
+    let capturedAt: Date?
+    let sourceName: String?
+
+    init(
+        stockCode: String,
+        currentPrice: Double? = nil,
+        per: Double? = nil,
+        pbr: Double? = nil,
+        volume: Double? = nil,
+        capturedAt: Date? = nil,
+        sourceName: String? = nil
+    ) {
+        self.stockCode = stockCode
+        self.currentPrice = currentPrice
+        self.per = per
+        self.pbr = pbr
+        self.volume = volume
+        self.capturedAt = capturedAt
+        self.sourceName = sourceName
+    }
+
+    var hasAnyMetricValue: Bool {
+        currentPrice != nil || per != nil || pbr != nil || volume != nil
+    }
+
+    func stockSnapshot(capturedAt fallbackCapturedAt: Date = Date()) -> StockSnapshot? {
+        let normalizedStockCode = stockCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedStockCode.isEmpty, hasAnyMetricValue else {
+            return nil
+        }
+
+        let normalizedSourceName = sourceName?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let snapshotSourceName: String
+        if let normalizedSourceName, !normalizedSourceName.isEmpty {
+            snapshotSourceName = normalizedSourceName
+        } else {
+            snapshotSourceName = "外部API疑似データ"
+        }
+
+        return StockSnapshot(
+            stockCode: normalizedStockCode,
+            currentPrice: currentPrice,
+            per: per,
+            pbr: pbr,
+            volume: volume,
+            capturedAt: capturedAt ?? fallbackCapturedAt,
+            sourceName: snapshotSourceName
+        )
+    }
+}
+
 protocol ExternalStockDataProviding: StockDataProviding {
     var lastError: ExternalStockDataProviderError? { get }
 }
 
 final class ExternalApiStockDataProvider: ExternalStockDataProviding {
+    private let responsesByStockCode: [String: ExternalStockSnapshotResponse]
+    private let currentDate: () -> Date
     private(set) var lastError: ExternalStockDataProviderError?
 
+    init(
+        responses: [String: ExternalStockSnapshotResponse] = [:],
+        currentDate: @escaping () -> Date = Date.init
+    ) {
+        self.responsesByStockCode = responses
+        self.currentDate = currentDate
+    }
+
+    init(
+        responses: [ExternalStockSnapshotResponse],
+        currentDate: @escaping () -> Date = Date.init
+    ) {
+        self.responsesByStockCode = Dictionary(
+            uniqueKeysWithValues: responses.map { response in
+                (response.stockCode, response)
+            }
+        )
+        self.currentDate = currentDate
+    }
+
     func snapshot(for stockCode: String) -> StockSnapshot? {
-        lastError = .notImplemented
+        guard let response = responsesByStockCode[stockCode] else {
+            lastError = nil
+            return nil
+        }
+
+        guard let snapshot = response.stockSnapshot(capturedAt: currentDate()) else {
+            lastError = .missingRequiredValues
+            return nil
+        }
+
+        lastError = nil
+        return snapshot
+    }
+}
+
+struct CompositeStockDataProvider: StockDataProviding {
+    private let providers: [any StockDataProviding]
+
+    init(providers: [any StockDataProviding]) {
+        self.providers = providers
+    }
+
+    func snapshot(for stockCode: String) -> StockSnapshot? {
+        for provider in providers {
+            if let snapshot = provider.snapshot(for: stockCode) {
+                return snapshot
+            }
+        }
+
         return nil
     }
 }

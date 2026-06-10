@@ -400,34 +400,44 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 - 全項目空欄の手入力評価データは保存しない
 - 条件一致履歴の全削除は既存プロトコルの戻り値を変えていないため、削除失敗理由の詳細表示は後続対応
 
-## Step 12: 外部API連携の検討と実装（設計スタブ準備済み）
+## Step 12: 外部API連携の第一段階（完了）
 
 目的:
 
 - 手入力値・固定モック値で固めた StockSnapshot / DataProvider / AlertRuleEvaluator の境界を維持したまま、外部データ取得へ進む
+- 実通信の前に、外部APIレスポンス相当のデータを `StockSnapshot` に変換する土台を作る
 
-作業候補:
+完了内容:
 
-- 外部株価API候補の選定
-- APIレスポンスを StockSnapshot に変換する `ExternalApiStockDataProvider` の設計
-- レート制限、取得失敗、欠損値、キャッシュ方針の整理
-- 外部データ取得時も、ユーザー設定条件への一致判定として中立的に表示する文言レビュー
-- 日足データや外部指標データの保存方針検討
-
-準備済み内容:
-
-- `ExternalApiStockDataProvider` スタブを追加済み
-- 現時点ではネットワーク通信を行わず、未実装状態として Snapshot を返さない
-- 将来の評価データ優先順位を、手入力評価データ、外部API取得値、開発用固定モック値の順に整理済み
-- 現時点の実装では、有効な手入力評価データ、固定モック値の順で評価する
+- 外部データ取得候補メモ `docs/external-data-provider.md` を追加済み
+- `ExternalStockSnapshotResponse` を追加し、外部APIレスポンス相当DTOを用意済み
+- `ExternalStockSnapshotResponse` から `StockSnapshot` への変換処理を追加済み
+- currentPrice、PER、PBR、出来高のうち少なくとも1つがある場合だけ有効な `StockSnapshot` として扱う
+- 全指標が nil の外部API疑似レスポンスは有効な `StockSnapshot` として扱わない
+- `ExternalApiStockDataProvider` はネットワーク通信を行わず、ローカルに渡された疑似レスポンスから `StockSnapshot` を返せるようにした
+- `CompositeStockDataProvider` を追加し、複数Providerを順番に試せるようにした
+- アプリ本体の評価データ取得を、有効な手入力評価データ、外部API疑似データ、固定モック値の順に整理済み
 - APIレスポンスを直接 AlertRuleEvaluator に渡さず、DataProvider境界で StockSnapshot に変換する方針を明記済み
-- APIキー未設定、取得失敗、レート制限、欠損値はDataProvider層で扱い、ViewModel/UIでは中立的なエラーまたは判定不能として扱う方針を明記済み
+- APIキー未設定、取得失敗、レート制限、欠損値はDataProvider層で扱い、ViewModel/UIでは中立的なエラーまたは判定不能として扱う方針を整理済み
+- DTO変換、外部API疑似Provider、3段階フォールバック、外部API由来Snapshotでの条件評価のテストを追加済み
 
 注意:
 
 - 外部APIを追加しても、アプリが売買推奨を行わない方針は維持する
 - 外部APIを追加しても AlertRuleEvaluator の入力は StockSnapshot のままにする
 - リアルタイム性は要件とコストを確認してから検討する
+- Step 12 では実ネットワーク通信、APIキー保存、認証、URLSession通信、レート制限処理、キャッシュ、バックグラウンド更新は実装しない
+
+残課題:
+
+- 採用する外部APIと利用プランの確定
+- APIキー保存方式の設計
+- URLSession通信とレスポンスパース
+- レート制限、取得失敗、欠損値の画面表示
+- 外部取得値のキャッシュ方針
+- バックグラウンド更新の要否
+- 取得データの保存範囲
+- 外部API利用規約に合わせた表示・再配布制約の確認
 
 ## Step 13: Web/PC版への拡張方針
 
@@ -453,8 +463,8 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 
 ## 次の実装に進む前の注意点
 
-- Step 11 で手入力評価データと4指標の条件設定UI解放は完了したため、次は Step 12 で外部API連携の検討に進む
-- 外部データ取得へ進む場合も、StockSnapshot / DataProvider / AlertRuleEvaluator の境界を維持する
+- Step 12 で外部API疑似レスポンスから `StockSnapshot` へ変換する土台は完了したため、次は実通信、APIキー管理、キャッシュ、レート制限対応の設計に進める
+- 外部データ取得の実通信へ進む場合も、StockSnapshot / DataProvider / AlertRuleEvaluator の境界を維持する
 - SwiftDataを使う場合、モデル変更時の移行方針を早めに意識する
 - 日経225銘柄マスタは変更されるため、初期データの更新方法を後で設計する
 - UI文言は売買推奨に見えないようにレビューする
