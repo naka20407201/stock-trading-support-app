@@ -92,6 +92,7 @@ enum ManualStockSnapshotInputField: String, CaseIterable, Identifiable {
 }
 
 enum ManualStockSnapshotInputValidationError: Error, Equatable, Identifiable {
+    case emptyValues
     case invalidNumber(ManualStockSnapshotInputField)
     case negativeValue(ManualStockSnapshotInputField)
 
@@ -101,6 +102,8 @@ enum ManualStockSnapshotInputValidationError: Error, Equatable, Identifiable {
 
     var message: String {
         switch self {
+        case .emptyValues:
+            return "少なくとも1つの評価用データを入力してください。削除する場合は削除ボタンを使ってください。"
         case .invalidNumber(let field):
             return "\(field.displayName)は数値で入力してください。"
         case .negativeValue(let field):

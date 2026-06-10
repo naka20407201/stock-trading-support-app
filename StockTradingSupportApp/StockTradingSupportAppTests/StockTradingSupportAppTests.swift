@@ -1268,6 +1268,21 @@ struct StockTradingSupportAppTests {
         #expect(snapshot?.sourceName == "手入力評価データ")
     }
 
+    @Test func manualInputStockDataProviderReturnsNilForEmptyInput() {
+        let input = makeManualStockSnapshotInput(
+            stockCode: "7203",
+            currentPrice: nil,
+            per: nil,
+            pbr: nil,
+            volume: nil
+        )
+        let provider = ManualInputStockDataProvider(
+            repository: InMemoryManualStockSnapshotInputRepository(initialInputs: [input])
+        )
+
+        #expect(provider.snapshot(for: "7203") == nil)
+    }
+
     @Test func manualInputStockDataProviderReturnsNilForMissingInput() {
         let provider = ManualInputStockDataProvider(
             repository: InMemoryManualStockSnapshotInputRepository()
@@ -1294,6 +1309,30 @@ struct StockTradingSupportAppTests {
         #expect(snapshot?.sourceName == "手入力評価データ")
     }
 
+    @Test func fallbackStockDataProviderUsesMockWhenManualInputIsEmpty() {
+        let emptyManualInput = makeManualStockSnapshotInput(
+            stockCode: "7203",
+            currentPrice: nil,
+            per: nil,
+            pbr: nil,
+            volume: nil
+        )
+        let provider = FallbackStockDataProvider(
+            primaryProvider: ManualInputStockDataProvider(
+                repository: InMemoryManualStockSnapshotInputRepository(initialInputs: [emptyManualInput])
+            ),
+            fallbackProvider: MockStockDataProvider(
+                capturedAt: Date(timeIntervalSince1970: 100),
+                mockValues: ["7203": 3200]
+            )
+        )
+
+        let snapshot = provider.snapshot(for: "7203")
+
+        #expect(snapshot?.currentPrice == 3200)
+        #expect(snapshot?.sourceName == "固定モック株価")
+    }
+
     @Test func fallbackStockDataProviderUsesMockWhenManualInputIsMissing() {
         let capturedAt = Date(timeIntervalSince1970: 100)
         let provider = FallbackStockDataProvider(
@@ -1311,6 +1350,15 @@ struct StockTradingSupportAppTests {
         #expect(snapshot?.currentPrice == 3200)
         #expect(snapshot?.capturedAt == capturedAt)
         #expect(snapshot?.sourceName == "固定モック株価")
+    }
+
+    @Test func externalApiStockDataProviderIsStubbed() {
+        let provider = ExternalApiStockDataProvider()
+
+        let snapshot = provider.snapshot(for: "7203")
+
+        #expect(snapshot == nil)
+        #expect(provider.lastError == .notImplemented)
     }
 
     @MainActor
@@ -1335,6 +1383,23 @@ struct StockTradingSupportAppTests {
     }
 
     @MainActor
+    @Test func manualStockSnapshotInputViewModelTreatsEmptyExistingInputAsMissing() {
+        let emptyInput = makeManualStockSnapshotInput(
+            stockCode: "7203",
+            currentPrice: nil,
+            per: nil,
+            pbr: nil,
+            volume: nil
+        )
+        let viewModel = ManualStockSnapshotInputViewModel(
+            stockCode: "7203",
+            repository: InMemoryManualStockSnapshotInputRepository(initialInputs: [emptyInput])
+        )
+
+        #expect(viewModel.input == nil)
+    }
+
+    @MainActor
     @Test func manualStockSnapshotInputViewModelRejectsNonNumericValue() throws {
         let viewModel = ManualStockSnapshotInputViewModel(
             stockCode: "7203",
@@ -1356,6 +1421,57 @@ struct StockTradingSupportAppTests {
         }
 
         #expect(viewModel.input == nil)
+    }
+
+    @MainActor
+    @Test func manualStockSnapshotInputViewModelRejectsEmptyValues() throws {
+        let viewModel = ManualStockSnapshotInputViewModel(
+            stockCode: "7203",
+            repository: InMemoryManualStockSnapshotInputRepository()
+        )
+
+        do {
+            try viewModel.saveInput(
+                currentPriceText: "",
+                perText: "",
+                pbrText: "",
+                volumeText: ""
+            )
+            Issue.record("全項目空欄の評価用データは保存しない必要があります。")
+        } catch let error as ManualStockSnapshotInputValidationError {
+            #expect(error == .emptyValues)
+        } catch {
+            Issue.record("想定外のエラーです: \(error)")
+        }
+
+        #expect(viewModel.input == nil)
+    }
+
+    @MainActor
+    @Test func manualStockSnapshotInputViewModelKeepsExistingInputWhenEmptySaveFails() throws {
+        let existingInput = makeManualStockSnapshotInput(stockCode: "7203", currentPrice: 3200)
+        let repository = InMemoryManualStockSnapshotInputRepository(initialInputs: [existingInput])
+        let viewModel = ManualStockSnapshotInputViewModel(
+            stockCode: "7203",
+            repository: repository
+        )
+
+        do {
+            try viewModel.saveInput(
+                currentPriceText: "",
+                perText: "",
+                pbrText: "",
+                volumeText: ""
+            )
+            Issue.record("全項目空欄の保存失敗時に既存入力を上書きしない必要があります。")
+        } catch let error as ManualStockSnapshotInputValidationError {
+            #expect(error == .emptyValues)
+        } catch {
+            Issue.record("想定外のエラーです: \(error)")
+        }
+
+        #expect(viewModel.input == existingInput)
+        #expect(repository.fetchInput(stockCode: "7203") == existingInput)
     }
 
     @MainActor

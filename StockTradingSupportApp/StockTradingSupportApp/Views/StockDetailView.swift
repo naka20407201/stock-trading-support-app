@@ -142,7 +142,7 @@ struct StockDetailView: View {
                 ContentUnavailableView(
                     "入力値は未登録です",
                     systemImage: "square.and.pencil",
-                    description: Text("未登録の場合は固定モック値を使って評価します。")
+                    description: Text("有効な入力値がない場合は固定モック値を使って評価します。")
                 )
             }
 
@@ -161,6 +161,8 @@ struct StockDetailView: View {
             }
 
             Label("未入力の指標は評価できません", systemImage: "info.circle")
+                .foregroundStyle(.secondary)
+            Label("手入力値はユーザー確認用の評価データです", systemImage: "pencil")
                 .foregroundStyle(.secondary)
             Label("外部API・リアルタイム株価取得は未実装です", systemImage: "wifi.slash")
                 .foregroundStyle(.secondary)

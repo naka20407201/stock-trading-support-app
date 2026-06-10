@@ -53,7 +53,10 @@ struct ManualStockSnapshotInputEditorView: View {
 
             Section("補足") {
                 Label("各項目は任意入力です", systemImage: "text.badge.checkmark")
+                Label("少なくとも1つの項目を入力してください", systemImage: "checkmark.circle")
                 Label("未入力の指標は評価できません", systemImage: "info.circle")
+                Label("手入力値はユーザー確認用の評価データです", systemImage: "pencil")
+                Label("削除する場合は詳細画面の削除ボタンを使ってください", systemImage: "trash")
                 Label("外部API・リアルタイム株価取得は未実装です", systemImage: "wifi.slash")
             }
         }

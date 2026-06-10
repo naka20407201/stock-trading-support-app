@@ -19,7 +19,32 @@ struct ManualInputStockDataProvider: StockDataProviding {
     }
 
     func snapshot(for stockCode: String) -> StockSnapshot? {
-        repository.fetchInput(stockCode: stockCode)?.stockSnapshot
+        guard let input = repository.fetchInput(stockCode: stockCode), input.hasAnyValue else {
+            return nil
+        }
+
+        return input.stockSnapshot
+    }
+}
+
+enum ExternalStockDataProviderError: Error, Equatable {
+    case notImplemented
+    case apiKeyNotConfigured
+    case rateLimited
+    case fetchFailed(String)
+    case missingRequiredValues
+}
+
+protocol ExternalStockDataProviding: StockDataProviding {
+    var lastError: ExternalStockDataProviderError? { get }
+}
+
+final class ExternalApiStockDataProvider: ExternalStockDataProviding {
+    private(set) var lastError: ExternalStockDataProviderError?
+
+    func snapshot(for stockCode: String) -> StockSnapshot? {
+        lastError = .notImplemented
+        return nil
     }
 }
 

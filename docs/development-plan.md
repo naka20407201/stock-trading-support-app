@@ -382,22 +382,25 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 - `ManualStockSnapshotInputRepository`、`InMemoryManualStockSnapshotInputRepository`、`SwiftDataManualStockSnapshotInputRepository` を追加
 - App entry の SwiftData Schema に `ManualStockSnapshotInputRecord` を登録し、アプリ本体では手入力評価データをSwiftDataへ保存
 - `ManualInputStockDataProvider` を追加し、手入力評価データを StockSnapshot に変換
-- `FallbackStockDataProvider` を追加し、手入力評価データがある場合は手入力値を優先し、未登録の場合は固定モック値へフォールバックする構成にした
+- `FallbackStockDataProvider` を追加し、有効な手入力評価データがある場合は手入力値を優先し、未登録または全項目空欄の場合は固定モック値へフォールバックする構成にした
 - StockDetailView に評価用データセクションを追加し、現在値、PER、PBR、出来高の表示、追加、編集、削除を行えるようにした
 - `ManualStockSnapshotInputEditorView` と `ManualStockSnapshotInputViewModel` を追加し、空欄は nil、数値以外と0未満はエラーとして扱う
 - 条件追加画面で `currentPrice`、`per`、`pbr`、`volume` を選択できるようにした
 - 未入力または欠損している指標を使う条件は「評価できません」として扱う
 - 条件一致履歴には、対象指標、比較演算子、しきい値、観測値、データソースを従来通り保存する
 - 手入力評価データ、SwiftData Repository、Provider優先順位、4指標評価、未入力指標の判定不能、入力バリデーションのテストを追加
+- 補修として、全項目空欄の手入力評価データは有効な手入力評価データなしとして扱い、固定モック値へのフォールバックを妨げないようにした
+- 全項目空欄の保存は許可せず、削除したい場合は削除ボタンを使う方針にした
 
 注意:
 
 - 外部API、リアルタイム株価、通知送信、自動売買、証券口座連携、板情報取得はこのStepでも実装しない
 - 条件一致は売買判断ではなく、ユーザー設定条件と入力値またはモック値の照合結果として扱う
 - 未入力指標は推測せず、判定不能として扱う
+- 全項目空欄の手入力評価データは保存しない
 - 条件一致履歴の全削除は既存プロトコルの戻り値を変えていないため、削除失敗理由の詳細表示は後続対応
 
-## Step 12: 外部API連携の検討と実装
+## Step 12: 外部API連携の検討と実装（設計スタブ準備済み）
 
 目的:
 
@@ -410,6 +413,15 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 - レート制限、取得失敗、欠損値、キャッシュ方針の整理
 - 外部データ取得時も、ユーザー設定条件への一致判定として中立的に表示する文言レビュー
 - 日足データや外部指標データの保存方針検討
+
+準備済み内容:
+
+- `ExternalApiStockDataProvider` スタブを追加済み
+- 現時点ではネットワーク通信を行わず、未実装状態として Snapshot を返さない
+- 将来の評価データ優先順位を、手入力評価データ、外部API取得値、開発用固定モック値の順に整理済み
+- 現時点の実装では、有効な手入力評価データ、固定モック値の順で評価する
+- APIレスポンスを直接 AlertRuleEvaluator に渡さず、DataProvider境界で StockSnapshot に変換する方針を明記済み
+- APIキー未設定、取得失敗、レート制限、欠損値はDataProvider層で扱い、ViewModel/UIでは中立的なエラーまたは判定不能として扱う方針を明記済み
 
 注意:
 

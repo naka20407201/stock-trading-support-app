@@ -26,7 +26,8 @@ final class ManualStockSnapshotInputViewModel: ObservableObject {
     }
 
     func refresh() {
-        input = repository.fetchInput(stockCode: stockCode)
+        let fetchedInput = repository.fetchInput(stockCode: stockCode)
+        input = fetchedInput?.hasAnyValue == true ? fetchedInput : nil
         syncReadError()
     }
 
@@ -46,6 +47,10 @@ final class ManualStockSnapshotInputViewModel: ObservableObject {
             volume: try parseOptionalValue(volumeText, field: .volume),
             updatedAt: updatedAt
         )
+
+        guard input.hasAnyValue else {
+            throw ManualStockSnapshotInputValidationError.emptyValues
+        }
 
         let savedInput = try repository.save(input)
         refresh()

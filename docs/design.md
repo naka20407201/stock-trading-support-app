@@ -80,7 +80,7 @@
 6. 判定結果が条件一致の場合、AlertMatchHistory を作成する
 7. 通知送信は後続対応とし、初期版では画面内の条件一致履歴として扱う
 
-Step 11 時点では、手入力評価データがある場合は手入力値を優先し、手入力評価データが未登録の場合は固定モック値を使います。どちらもない場合、または対象指標が nil の場合は判定不能として表示します。
+Step 11 時点では、有効な手入力評価データがある場合は手入力値を優先し、手入力評価データが未登録または全項目空欄の場合は固定モック値を使います。どちらもない場合、または対象指標が nil の場合は判定不能として表示します。
 
 ## SwiftUIでの構成案
 
@@ -140,7 +140,7 @@ Step 10 時点では、App entry が `SwiftDataInvestmentMemoRepository`、`Swif
 
 SwiftData Repository の取得処理は、可能な範囲で `FetchDescriptor` の predicate / sort を使い、全件取得後のSwift側filterを避けます。delete系は既存Repositoryプロトコルの戻り値を大きく変えず、Boolの失敗をViewModel側のエラーメッセージとして扱います。条件一致履歴の全削除のように戻り値がない操作は、詳細な失敗表示を後続課題として残します。
 
-Step 11 時点では、App entry が `SwiftDataManualStockSnapshotInputRepository` も作成します。`ManualInputStockDataProvider` はこのRepositoryから手入力評価データを取得して StockSnapshot を生成し、`FallbackStockDataProvider` が手入力値を優先しながら固定モック値へフォールバックします。StockDetailView は `ManualStockSnapshotInputViewModel` 経由で評価用データの表示、追加、編集、削除を行い、SwiftData の `ModelContext` は直接操作しません。
+Step 11 時点では、App entry が `SwiftDataManualStockSnapshotInputRepository` も作成します。`ManualInputStockDataProvider` はこのRepositoryから手入力評価データを取得して StockSnapshot を生成し、全項目空欄の入力データは有効な手入力評価データなしとして扱います。`FallbackStockDataProvider` は有効な手入力値を優先しながら固定モック値へフォールバックします。StockDetailView は `ManualStockSnapshotInputViewModel` 経由で評価用データの表示、追加、編集、削除を行い、SwiftData の `ModelContext` は直接操作しません。
 
 ## 株価・指標値取得の抽象化方針
 
@@ -163,6 +163,8 @@ Step 11 時点では、App entry が `SwiftDataManualStockSnapshotInputRepositor
 5. 条件一致の場合のみ AlertMatchHistory を作成する
 
 Step 11 時点では、`ManualInputStockDataProvider`、`MockStockDataProvider`、`FallbackStockDataProvider` を使い、currentPrice、PER、PBR、出来高を StockSnapshot の対象指標として扱えます。条件追加画面では `currentPrice`、`per`、`pbr`、`volume` を選択できます。未入力または欠損している指標は推測せず、判定不能として表示します。
+
+Step 12準備として、`ExternalApiStockDataProvider` スタブを追加します。現時点ではネットワーク通信を行わず Snapshot を返しません。将来の優先順位は、ユーザーの手入力評価データ、外部API取得値、開発用固定モック値の順です。APIキー未設定、取得失敗、レート制限、欠損値はDataProvider層で扱い、AlertRuleEvaluator には StockSnapshot だけを渡します。
 
 将来のDataProvider候補:
 
