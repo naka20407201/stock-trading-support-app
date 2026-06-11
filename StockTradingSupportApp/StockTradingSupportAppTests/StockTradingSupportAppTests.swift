@@ -1119,6 +1119,42 @@ struct StockTradingSupportAppTests {
         #expect(response.stockSnapshot(capturedAt: Date(timeIntervalSince1970: 100)) == nil)
     }
 
+    @Test func jQuantsStockDataMapperCreatesExternalStockSnapshotResponse() throws {
+        let capturedAt = Date(timeIntervalSince1970: 100)
+        let response = try #require(
+            JQuantsStockDataMapper().map(
+                dailyQuote: JQuantsDailyQuoteResponse(
+                    stockCode: "7203",
+                    close: 3210,
+                    volume: 2_000_000,
+                    capturedAt: capturedAt
+                ),
+                financialMetrics: JQuantsFinancialMetricsResponse(
+                    stockCode: "7203",
+                    per: 12.5,
+                    pbr: 1.1
+                )
+            )
+        )
+
+        #expect(response.stockCode == "7203")
+        #expect(response.currentPrice == 3210)
+        #expect(response.per == 12.5)
+        #expect(response.pbr == 1.1)
+        #expect(response.volume == 2_000_000)
+        #expect(response.capturedAt == capturedAt)
+        #expect(response.sourceName == "J-Quants")
+    }
+
+    @Test func jQuantsStockDataMapperReturnsNilWithoutStockCode() {
+        let response = JQuantsStockDataMapper().map(
+            dailyQuote: nil,
+            financialMetrics: nil
+        )
+
+        #expect(response == nil)
+    }
+
     @Test func inMemoryAlertMatchHistoryRepositoryAddsHistory() throws {
         let repository = InMemoryAlertMatchHistoryRepository()
         let history = makeAlertMatchHistory(stockCode: "7203")
@@ -1405,9 +1441,9 @@ struct StockTradingSupportAppTests {
         #expect(snapshot?.sourceName == "固定モック株価")
     }
 
-    @Test func externalApiStockDataProviderReturnsSnapshotFromPseudoResponse() {
+    @Test func stubExternalStockDataProviderReturnsSnapshotFromPseudoResponse() {
         let capturedAt = Date(timeIntervalSince1970: 100)
-        let provider = ExternalApiStockDataProvider(
+        let provider = StubExternalStockDataProvider(
             responses: [
                 "7203": ExternalStockSnapshotResponse(
                     stockCode: "7203",
@@ -1430,15 +1466,15 @@ struct StockTradingSupportAppTests {
         #expect(provider.lastError == nil)
     }
 
-    @Test func externalApiStockDataProviderReturnsNilForMissingPseudoResponse() {
-        let provider = ExternalApiStockDataProvider()
+    @Test func stubExternalStockDataProviderReturnsNilForMissingPseudoResponse() {
+        let provider = StubExternalStockDataProvider()
 
         #expect(provider.snapshot(for: "7203") == nil)
         #expect(provider.lastError == nil)
     }
 
-    @Test func externalApiStockDataProviderReportsMissingValues() {
-        let provider = ExternalApiStockDataProvider(
+    @Test func stubExternalStockDataProviderReportsMissingValues() {
+        let provider = StubExternalStockDataProvider(
             responses: [
                 "7203": ExternalStockSnapshotResponse(
                     stockCode: "7203",
@@ -1454,13 +1490,31 @@ struct StockTradingSupportAppTests {
         #expect(provider.lastError == .missingRequiredValues)
     }
 
+    @Test func externalApiStockDataProviderReturnsNilWhenApiKeyIsMissing() {
+        let provider = ExternalApiStockDataProvider(
+            client: JQuantsStockDataClient(apiKey: nil)
+        )
+
+        #expect(provider.snapshot(for: "7203") == nil)
+        #expect(provider.lastError == .apiKeyNotConfigured)
+    }
+
+    @Test func externalApiStockDataProviderReturnsNilWhenClientIsRateLimited() {
+        let provider = ExternalApiStockDataProvider(
+            client: FailingExternalStockDataClient(error: .rateLimited)
+        )
+
+        #expect(provider.snapshot(for: "7203") == nil)
+        #expect(provider.lastError == .rateLimited)
+    }
+
     @Test func compositeStockDataProviderPrefersManualInputOverExternalAndMock() {
         let manualInput = makeManualStockSnapshotInput(stockCode: "7203", currentPrice: 1234)
         let provider = CompositeStockDataProvider(providers: [
             ManualInputStockDataProvider(
                 repository: InMemoryManualStockSnapshotInputRepository(initialInputs: [manualInput])
             ),
-            ExternalApiStockDataProvider(
+            StubExternalStockDataProvider(
                 responses: [
                     "7203": ExternalStockSnapshotResponse(stockCode: "7203", currentPrice: 2222)
                 ]
@@ -1482,7 +1536,7 @@ struct StockTradingSupportAppTests {
             ManualInputStockDataProvider(
                 repository: InMemoryManualStockSnapshotInputRepository()
             ),
-            ExternalApiStockDataProvider(
+            StubExternalStockDataProvider(
                 responses: [
                     "7203": ExternalStockSnapshotResponse(
                         stockCode: "7203",
@@ -1515,7 +1569,7 @@ struct StockTradingSupportAppTests {
             ManualInputStockDataProvider(
                 repository: InMemoryManualStockSnapshotInputRepository(initialInputs: [emptyManualInput])
             ),
-            ExternalApiStockDataProvider(
+            StubExternalStockDataProvider(
                 responses: [
                     "7203": ExternalStockSnapshotResponse(
                         stockCode: "7203",
@@ -1541,7 +1595,7 @@ struct StockTradingSupportAppTests {
             ManualInputStockDataProvider(
                 repository: InMemoryManualStockSnapshotInputRepository()
             ),
-            ExternalApiStockDataProvider(),
+            StubExternalStockDataProvider(),
             MockStockDataProvider(
                 capturedAt: Date(timeIntervalSince1970: 100),
                 mockValues: ["7203": 3200]
@@ -1552,6 +1606,50 @@ struct StockTradingSupportAppTests {
 
         #expect(snapshot?.currentPrice == 3200)
         #expect(snapshot?.sourceName == "固定モック株価")
+    }
+
+    @Test func compositeStockDataProviderFallsBackToMockWhenExternalApiKeyIsMissing() {
+        let externalProvider = ExternalApiStockDataProvider(
+            client: JQuantsStockDataClient(apiKey: nil)
+        )
+        let provider = CompositeStockDataProvider(providers: [
+            ManualInputStockDataProvider(
+                repository: InMemoryManualStockSnapshotInputRepository()
+            ),
+            externalProvider,
+            MockStockDataProvider(
+                capturedAt: Date(timeIntervalSince1970: 100),
+                mockValues: ["7203": 3200]
+            )
+        ])
+
+        let snapshot = provider.snapshot(for: "7203")
+
+        #expect(snapshot?.currentPrice == 3200)
+        #expect(snapshot?.sourceName == "固定モック株価")
+        #expect(externalProvider.lastError == .apiKeyNotConfigured)
+    }
+
+    @Test func compositeStockDataProviderFallsBackToMockWhenExternalClientIsRateLimited() {
+        let externalProvider = ExternalApiStockDataProvider(
+            client: FailingExternalStockDataClient(error: .rateLimited)
+        )
+        let provider = CompositeStockDataProvider(providers: [
+            ManualInputStockDataProvider(
+                repository: InMemoryManualStockSnapshotInputRepository()
+            ),
+            externalProvider,
+            MockStockDataProvider(
+                capturedAt: Date(timeIntervalSince1970: 100),
+                mockValues: ["7203": 3200]
+            )
+        ])
+
+        let snapshot = provider.snapshot(for: "7203")
+
+        #expect(snapshot?.currentPrice == 3200)
+        #expect(snapshot?.sourceName == "固定モック株価")
+        #expect(externalProvider.lastError == .rateLimited)
     }
 
     @Test func alertRuleEvaluatorEvaluatesExternalApiSnapshot() throws {
@@ -2070,6 +2168,14 @@ private final class DeleteFailingWatchlistRepository: WatchlistRepository {
     @discardableResult
     func delete(id: WatchlistItem.ID) -> Bool {
         false
+    }
+}
+
+private struct FailingExternalStockDataClient: ExternalStockDataClient {
+    let error: ExternalStockDataProviderError
+
+    func latestSnapshotResponse(for stockCode: String) -> Result<ExternalStockSnapshotResponse?, ExternalStockDataProviderError> {
+        .failure(error)
     }
 }
 

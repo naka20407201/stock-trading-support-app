@@ -96,7 +96,63 @@ protocol ExternalStockDataProviding: StockDataProviding {
     var lastError: ExternalStockDataProviderError? { get }
 }
 
-final class ExternalApiStockDataProvider: ExternalStockDataProviding {
+protocol ExternalStockDataClient {
+    func latestSnapshotResponse(for stockCode: String) -> Result<ExternalStockSnapshotResponse?, ExternalStockDataProviderError>
+}
+
+struct JQuantsDailyQuoteResponse: Equatable {
+    let stockCode: String
+    let close: Double?
+    let volume: Double?
+    let capturedAt: Date?
+}
+
+struct JQuantsFinancialMetricsResponse: Equatable {
+    let stockCode: String
+    let per: Double?
+    let pbr: Double?
+}
+
+struct JQuantsStockDataMapper {
+    func map(
+        dailyQuote: JQuantsDailyQuoteResponse?,
+        financialMetrics: JQuantsFinancialMetricsResponse?,
+        sourceName: String = "J-Quants"
+    ) -> ExternalStockSnapshotResponse? {
+        let stockCode = dailyQuote?.stockCode ?? financialMetrics?.stockCode ?? ""
+        guard !stockCode.isEmpty else {
+            return nil
+        }
+
+        return ExternalStockSnapshotResponse(
+            stockCode: stockCode,
+            currentPrice: dailyQuote?.close,
+            per: financialMetrics?.per,
+            pbr: financialMetrics?.pbr,
+            volume: dailyQuote?.volume,
+            capturedAt: dailyQuote?.capturedAt,
+            sourceName: sourceName
+        )
+    }
+}
+
+struct JQuantsStockDataClient: ExternalStockDataClient {
+    private let apiKey: String?
+
+    init(apiKey: String? = nil) {
+        self.apiKey = apiKey
+    }
+
+    func latestSnapshotResponse(for stockCode: String) -> Result<ExternalStockSnapshotResponse?, ExternalStockDataProviderError> {
+        guard apiKey?.isEmpty == false else {
+            return .failure(.apiKeyNotConfigured)
+        }
+
+        return .failure(.notImplemented)
+    }
+}
+
+final class StubExternalStockDataProvider: ExternalStockDataProviding {
     private let responsesByStockCode: [String: ExternalStockSnapshotResponse]
     private let currentDate: () -> Date
     private(set) var lastError: ExternalStockDataProviderError?
@@ -134,6 +190,41 @@ final class ExternalApiStockDataProvider: ExternalStockDataProviding {
 
         lastError = nil
         return snapshot
+    }
+}
+
+final class ExternalApiStockDataProvider: ExternalStockDataProviding {
+    private let client: any ExternalStockDataClient
+    private let currentDate: () -> Date
+    private(set) var lastError: ExternalStockDataProviderError?
+
+    init(
+        client: any ExternalStockDataClient = JQuantsStockDataClient(),
+        currentDate: @escaping () -> Date = Date.init
+    ) {
+        self.client = client
+        self.currentDate = currentDate
+    }
+
+    func snapshot(for stockCode: String) -> StockSnapshot? {
+        switch client.latestSnapshotResponse(for: stockCode) {
+        case .success(let response):
+            guard let response else {
+                lastError = nil
+                return nil
+            }
+
+            guard let snapshot = response.stockSnapshot(capturedAt: currentDate()) else {
+                lastError = .missingRequiredValues
+                return nil
+            }
+
+            lastError = nil
+            return snapshot
+        case .failure(let error):
+            lastError = error
+            return nil
+        }
     }
 }
 

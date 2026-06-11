@@ -37,7 +37,6 @@ struct StockTradingSupportAppApp: App {
                 ManualInputStockDataProvider(
                     repository: manualStockSnapshotInputRepository
                 ),
-                ExternalApiStockDataProvider(),
                 MockStockDataProvider()
             ])
 

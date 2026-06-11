@@ -416,7 +416,7 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 - 全指標が nil の外部API疑似レスポンスは有効な `StockSnapshot` として扱わない
 - `ExternalApiStockDataProvider` はネットワーク通信を行わず、ローカルに渡された疑似レスポンスから `StockSnapshot` を返せるようにした
 - `CompositeStockDataProvider` を追加し、複数Providerを順番に試せるようにした
-- アプリ本体の評価データ取得を、有効な手入力評価データ、外部API疑似データ、固定モック値の順に整理済み
+- 評価データ取得の設計を、有効な手入力評価データ、外部API由来データ、固定モック値の順に整理済み
 - APIレスポンスを直接 AlertRuleEvaluator に渡さず、DataProvider境界で StockSnapshot に変換する方針を明記済み
 - APIキー未設定、取得失敗、レート制限、欠損値はDataProvider層で扱い、ViewModel/UIでは中立的なエラーまたは判定不能として扱う方針を整理済み
 - DTO変換、外部API疑似Provider、3段階フォールバック、外部API由来Snapshotでの条件評価のテストを追加済み
@@ -438,6 +438,50 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 - バックグラウンド更新の要否
 - 取得データの保存範囲
 - 外部API利用規約に合わせた表示・再配布制約の確認
+
+## Step 12.5: 無料API前提の外部API設計確定（完了）
+
+目的:
+
+- 無料APIを前提に、実通信へ進む前のAPI選定方針とProvider責務を整理する
+- 日本株、日経225、東証銘柄コードとの相性を重視して候補を比較する
+- APIキー管理、URLSession通信層、DTO変換、キャッシュ、エラー表示の方針を決める
+
+完了内容:
+
+- 初期方針を「まずは無料APIで開始する」と明記
+- 第一候補を J-Quants とし、採用確定前に公式情報で無料プラン、利用規約、再配布制約、レート制限、取得可能期間を再確認する方針にした
+- Alpha Vantage と Finnhub は代替候補として残し、日本株コード体系や無料枠の制限リスクを整理
+- 無料APIで取得する対象を currentPrice、PER、PBR、出来高に整理
+- 無料APIでは難しい可能性がある対象として、リアルタイム株価、直近当日データ、高頻度更新、長期間一括取得などを整理
+- 有料APIは、無料APIのレート制限、取得範囲、遅延、任意銘柄対応、利用規約の制約が明確な場合だけ後続検討にする
+- `ExternalApiStockDataProvider` と疑似レスポンスProviderの責務を分離
+- `StubExternalStockDataProvider` を疑似レスポンス用Providerとして追加
+- `ExternalApiStockDataProvider` は将来の `ExternalStockDataClient` を使うProviderとして整理
+- `JQuantsStockDataClient` と `JQuantsStockDataMapper` を設計スタブとして追加
+- 通常起動時のProviderチェーンから空の外部API Providerを外し、手入力評価データ、固定モック値の順にした
+- 開発・テスト用では、手入力評価データ、疑似外部データ、固定モック値の3段階フォールバックを維持
+- APIキーをソースコードやGitHubに含めない方針を明記
+- APIキー未設定時は外部APIを使わず、手入力値または固定モック値で評価できる方針を明記
+- レート制限、通信失敗、銘柄コード未対応、一部指標欠損、全指標欠損、データ遅延、キャッシュ利用時のUI表示方針を整理
+- 無料APIのレート制限に備え、currentPrice、PER、PBR、出来高、capturedAt、sourceName のキャッシュ方針を整理
+- APIキー未設定、レート制限相当、疑似外部Provider、3段階フォールバックのテストを追加済み
+
+注意:
+
+- このStepでは実際のURLSession通信、APIキー保存、認証、キャッシュ保存、バックグラウンド更新は実装しない
+- 有料API契約、有料API前提の実装、課金前提の設計は行わない
+- 外部APIを追加しても、AlertRuleEvaluator の入力は `StockSnapshot` のまま維持する
+- 外部データ取得状態のUI文言は中立的にし、売買判断を促す表現は使わない
+
+残課題:
+
+- J-Quants無料プランの正確なAPIコール制限、取得可能期間、直近データ遅延、対象エンドポイントを公式情報で再確認する
+- J-QuantsでPER / PBRを直接取得できるか、または算出に必要なデータを無料枠で取得できるか確認する
+- APIキーのローカル設定方式を決める
+- URLSession通信層とレスポンスパースを実装する
+- 外部取得値のキャッシュRecord設計を決める
+- レート制限時の再試行や待機方針を決める
 
 ## Step 13: Web/PC版への拡張方針
 

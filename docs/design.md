@@ -80,7 +80,7 @@
 6. 判定結果が条件一致の場合、AlertMatchHistory を作成する
 7. 通知送信は後続対応とし、初期版では画面内の条件一致履歴として扱う
 
-Step 12 時点では、有効な手入力評価データがある場合は手入力値を優先し、手入力評価データが未登録または全項目空欄の場合は外部API疑似データ、固定モック値の順に評価用データを探します。いずれもない場合、または対象指標が nil の場合は判定不能として表示します。
+Step 12.5 時点では、通常起動時は有効な手入力評価データを優先し、手入力評価データが未登録または全項目空欄の場合は固定モック値を使います。開発・テスト用では、手入力評価データ、外部API疑似データ、固定モック値の3段階フォールバックを維持します。将来、無料API連携を有効にした場合は、手入力評価データ、外部API取得値、固定モック値の順に評価用データを探します。いずれもない場合、または対象指標が nil の場合は判定不能として表示します。
 
 ## SwiftUIでの構成案
 
@@ -164,15 +164,26 @@ Step 11 時点では、App entry が `SwiftDataManualStockSnapshotInputRepositor
 
 Step 11 時点では、`ManualInputStockDataProvider`、`MockStockDataProvider`、`FallbackStockDataProvider` を使い、currentPrice、PER、PBR、出来高を StockSnapshot の対象指標として扱えます。条件追加画面では `currentPrice`、`per`、`pbr`、`volume` を選択できます。未入力または欠損している指標は推測せず、判定不能として表示します。
 
-Step 12 時点では、外部APIレスポンス相当の `ExternalStockSnapshotResponse` を追加し、`ExternalApiStockDataProvider` が疑似レスポンスを `StockSnapshot` へ変換できるようにします。現時点ではネットワーク通信を行わず、APIキー保存、認証、URLSession通信、レート制限処理、キャッシュ、バックグラウンド更新は後続対応です。将来の優先順位は、ユーザーの手入力評価データ、外部API取得値、開発用固定モック値の順です。APIキー未設定、取得失敗、レート制限、欠損値はDataProvider層で扱い、AlertRuleEvaluator には StockSnapshot だけを渡します。
+Step 12 時点では、外部APIレスポンス相当の `ExternalStockSnapshotResponse` を追加し、外部データを `StockSnapshot` へ変換できるようにします。Step 12.5 では、疑似レスポンス用の `StubExternalStockDataProvider` と将来実通信用の `ExternalApiStockDataProvider` を分離します。現時点ではネットワーク通信を行わず、APIキー保存、認証、URLSession通信、レート制限処理、キャッシュ、バックグラウンド更新は後続対応です。将来の優先順位は、ユーザーの手入力評価データ、外部API取得値、開発用固定モック値の順です。APIキー未設定、取得失敗、レート制限、欠損値はDataProvider層で扱い、AlertRuleEvaluator には StockSnapshot だけを渡します。
 
-Step 12 の実行時Provider構成:
+Step 12.5 の通常起動Provider構成:
+
+1. `ManualInputStockDataProvider`
+2. `MockStockDataProvider`
+
+開発・テスト用の3段階Provider構成:
+
+1. `ManualInputStockDataProvider`
+2. `StubExternalStockDataProvider`
+3. `MockStockDataProvider`
+
+将来、無料API連携を有効にした場合のProvider構成:
 
 1. `ManualInputStockDataProvider`
 2. `ExternalApiStockDataProvider`
 3. `MockStockDataProvider`
 
-これらは `CompositeStockDataProvider` で順番に評価します。外部API疑似レスポンスの全指標が nil の場合は有効な `StockSnapshot` を作らず、次のProviderへフォールバックします。
+これらは `CompositeStockDataProvider` で順番に評価します。外部API疑似レスポンスや外部API取得値の全指標が nil の場合は有効な `StockSnapshot` を作らず、次のProviderへフォールバックします。
 
 将来のDataProvider候補:
 
