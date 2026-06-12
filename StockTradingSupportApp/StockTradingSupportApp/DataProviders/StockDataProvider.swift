@@ -35,6 +35,150 @@ enum ExternalStockDataProviderError: Error, Equatable {
     case missingRequiredValues
 }
 
+protocol ApiKeyProviding {
+    var apiKey: String? { get }
+}
+
+struct EnvironmentApiKeyProvider: ApiKeyProviding {
+    private let environmentKey: String
+    private let environment: [String: String]
+
+    init(
+        environmentKey: String,
+        environment: [String: String] = ProcessInfo.processInfo.environment
+    ) {
+        self.environmentKey = environmentKey
+        self.environment = environment
+    }
+
+    var apiKey: String? {
+        environment[environmentKey]
+    }
+}
+
+struct StaticApiKeyProvider: ApiKeyProviding {
+    let apiKey: String?
+
+    init(apiKey: String?) {
+        self.apiKey = apiKey
+    }
+}
+
+struct ExternalApiConfiguration {
+    let baseURL: URL
+    let apiKeyProvider: any ApiKeyProviding
+}
+
+struct JQuantsApiConfiguration {
+    static let apiKeyEnvironmentName = "JQUANTS_API_KEY"
+    static let defaultBaseURL = URL(string: "https://api.jquants.com")!
+
+    let baseURL: URL
+    let apiKeyProvider: any ApiKeyProviding
+
+    init(
+        baseURL: URL = Self.defaultBaseURL,
+        apiKeyProvider: any ApiKeyProviding = EnvironmentApiKeyProvider(
+            environmentKey: Self.apiKeyEnvironmentName
+        )
+    ) {
+        self.baseURL = baseURL
+        self.apiKeyProvider = apiKeyProvider
+    }
+
+    var apiKey: String? {
+        apiKeyProvider.apiKey?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}
+
+struct HTTPResponse: Equatable {
+    let statusCode: Int
+    let data: Data
+    let headers: [String: String]
+
+    init(
+        statusCode: Int,
+        data: Data = Data(),
+        headers: [String: String] = [:]
+    ) {
+        self.statusCode = statusCode
+        self.data = data
+        self.headers = headers
+    }
+}
+
+enum HTTPClientError: Error, Equatable {
+    case notImplemented
+    case transport(String)
+    case invalidResponse
+
+    var externalDataMessage: String {
+        switch self {
+        case .notImplemented:
+            return "HTTP通信は未実装です"
+        case .transport(let message):
+            return message
+        case .invalidResponse:
+            return "HTTPレスポンスを確認できませんでした"
+        }
+    }
+}
+
+protocol HTTPClient {
+    func send(_ request: URLRequest) -> Result<HTTPResponse, HTTPClientError>
+}
+
+struct URLSessionHTTPClient: HTTPClient {
+    func send(_ request: URLRequest) -> Result<HTTPResponse, HTTPClientError> {
+        .failure(.notImplemented)
+    }
+}
+
+enum JQuantsEndpoint {
+    case stockSnapshot(stockCode: String)
+
+    var path: String {
+        switch self {
+        case .stockSnapshot:
+            return "/v1/stock-snapshot-placeholder"
+        }
+    }
+
+    var queryItems: [URLQueryItem] {
+        switch self {
+        case .stockSnapshot(let stockCode):
+            return [URLQueryItem(name: "code", value: stockCode)]
+        }
+    }
+}
+
+struct JQuantsRequestBuilder {
+    let configuration: JQuantsApiConfiguration
+
+    init(configuration: JQuantsApiConfiguration) {
+        self.configuration = configuration
+    }
+
+    func request(for endpoint: JQuantsEndpoint) -> URLRequest? {
+        let endpointURL = configuration.baseURL.appendingPathComponent(endpoint.path)
+        guard var components = URLComponents(url: endpointURL, resolvingAgainstBaseURL: false) else {
+            return nil
+        }
+        components.queryItems = endpoint.queryItems
+
+        guard let url = components.url else {
+            return nil
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        if let apiKey = configuration.apiKey, !apiKey.isEmpty {
+            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        }
+        return request
+    }
+}
+
 struct ExternalStockSnapshotResponse: Equatable {
     let stockCode: String
     let currentPrice: Double?
@@ -107,7 +251,9 @@ struct JQuantsDailyQuoteResponse: Equatable {
     let capturedAt: Date?
 }
 
-struct JQuantsFinancialMetricsResponse: Equatable {
+extension JQuantsDailyQuoteResponse: Decodable {}
+
+struct JQuantsFinancialMetricsResponse: Equatable, Decodable {
     let stockCode: String
     let per: Double?
     let pbr: Double?
@@ -119,7 +265,18 @@ struct JQuantsStockDataMapper {
         financialMetrics: JQuantsFinancialMetricsResponse?,
         sourceName: String = "J-Quants"
     ) -> ExternalStockSnapshotResponse? {
-        let stockCode = dailyQuote?.stockCode ?? financialMetrics?.stockCode ?? ""
+        let dailyQuoteStockCode = dailyQuote?.stockCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        let financialMetricsStockCode = financialMetrics?.stockCode.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if let dailyQuoteStockCode,
+           let financialMetricsStockCode,
+           !dailyQuoteStockCode.isEmpty,
+           !financialMetricsStockCode.isEmpty,
+           dailyQuoteStockCode != financialMetricsStockCode {
+            return nil
+        }
+
+        let stockCode = dailyQuoteStockCode ?? financialMetricsStockCode ?? ""
         guard !stockCode.isEmpty else {
             return nil
         }
@@ -137,18 +294,84 @@ struct JQuantsStockDataMapper {
 }
 
 struct JQuantsStockDataClient: ExternalStockDataClient {
-    private let apiKey: String?
+    private struct SnapshotPayload: Decodable {
+        let dailyQuote: JQuantsDailyQuoteResponse?
+        let financialMetrics: JQuantsFinancialMetricsResponse?
+    }
 
-    init(apiKey: String? = nil) {
-        self.apiKey = apiKey
+    private let configuration: JQuantsApiConfiguration
+    private let httpClient: any HTTPClient
+    private let requestBuilder: JQuantsRequestBuilder
+    private let mapper: JQuantsStockDataMapper
+    private let decoder: JSONDecoder
+
+    init(
+        configuration: JQuantsApiConfiguration,
+        httpClient: any HTTPClient = URLSessionHTTPClient(),
+        mapper: JQuantsStockDataMapper = JQuantsStockDataMapper(),
+        decoder: JSONDecoder = JSONDecoder()
+    ) {
+        self.configuration = configuration
+        self.httpClient = httpClient
+        self.requestBuilder = JQuantsRequestBuilder(configuration: configuration)
+        self.mapper = mapper
+        self.decoder = decoder
+    }
+
+    init(
+        apiKey: String? = nil,
+        httpClient: any HTTPClient = URLSessionHTTPClient(),
+        mapper: JQuantsStockDataMapper = JQuantsStockDataMapper(),
+        decoder: JSONDecoder = JSONDecoder()
+    ) {
+        self.init(
+            configuration: JQuantsApiConfiguration(
+                apiKeyProvider: StaticApiKeyProvider(apiKey: apiKey)
+            ),
+            httpClient: httpClient,
+            mapper: mapper,
+            decoder: decoder
+        )
     }
 
     func latestSnapshotResponse(for stockCode: String) -> Result<ExternalStockSnapshotResponse?, ExternalStockDataProviderError> {
-        guard apiKey?.isEmpty == false else {
+        guard configuration.apiKey?.isEmpty == false else {
             return .failure(.apiKeyNotConfigured)
         }
 
-        return .failure(.notImplemented)
+        let normalizedStockCode = stockCode.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedStockCode.isEmpty else {
+            return .success(nil)
+        }
+
+        guard let request = requestBuilder.request(for: .stockSnapshot(stockCode: normalizedStockCode)) else {
+            return .failure(.fetchFailed("J-Quantsリクエストを作成できませんでした"))
+        }
+
+        switch httpClient.send(request) {
+        case .success(let response):
+            guard response.statusCode != 429 else {
+                return .failure(.rateLimited)
+            }
+
+            guard (200..<300).contains(response.statusCode) else {
+                return .failure(.fetchFailed("HTTPステータス \(response.statusCode)"))
+            }
+
+            do {
+                let payload = try decoder.decode(SnapshotPayload.self, from: response.data)
+                return .success(
+                    mapper.map(
+                        dailyQuote: payload.dailyQuote,
+                        financialMetrics: payload.financialMetrics
+                    )
+                )
+            } catch {
+                return .failure(.fetchFailed("J-Quantsレスポンスを解析できませんでした"))
+            }
+        case .failure(let error):
+            return .failure(.fetchFailed(error.externalDataMessage))
+        }
     }
 }
 

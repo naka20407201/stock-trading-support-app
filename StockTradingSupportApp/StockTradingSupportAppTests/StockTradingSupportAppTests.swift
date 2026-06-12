@@ -1146,6 +1146,103 @@ struct StockTradingSupportAppTests {
         #expect(response.sourceName == "J-Quants")
     }
 
+    @Test func jQuantsStockDataMapperReturnsNilForMismatchedStockCode() {
+        let response = JQuantsStockDataMapper().map(
+            dailyQuote: JQuantsDailyQuoteResponse(
+                stockCode: "7203",
+                close: 3210,
+                volume: 2_000_000,
+                capturedAt: nil
+            ),
+            financialMetrics: JQuantsFinancialMetricsResponse(
+                stockCode: "6758",
+                per: 12.5,
+                pbr: 1.1
+            )
+        )
+
+        #expect(response == nil)
+    }
+
+    @Test func jQuantsStockDataMapperTrimsStockCode() throws {
+        let response = try #require(
+            JQuantsStockDataMapper().map(
+                dailyQuote: JQuantsDailyQuoteResponse(
+                    stockCode: " 7203 ",
+                    close: 3210,
+                    volume: 2_000_000,
+                    capturedAt: nil
+                ),
+                financialMetrics: JQuantsFinancialMetricsResponse(
+                    stockCode: "7203",
+                    per: nil,
+                    pbr: nil
+                )
+            )
+        )
+
+        #expect(response.stockCode == "7203")
+    }
+
+    @Test func jQuantsStockDataMapperUsesDailyQuoteOnly() throws {
+        let response = try #require(
+            JQuantsStockDataMapper().map(
+                dailyQuote: JQuantsDailyQuoteResponse(
+                    stockCode: "7203",
+                    close: 3210,
+                    volume: 2_000_000,
+                    capturedAt: nil
+                ),
+                financialMetrics: nil
+            )
+        )
+
+        #expect(response.stockCode == "7203")
+        #expect(response.currentPrice == 3210)
+        #expect(response.volume == 2_000_000)
+        #expect(response.per == nil)
+        #expect(response.pbr == nil)
+    }
+
+    @Test func jQuantsStockDataMapperUsesFinancialMetricsOnly() throws {
+        let response = try #require(
+            JQuantsStockDataMapper().map(
+                dailyQuote: nil,
+                financialMetrics: JQuantsFinancialMetricsResponse(
+                    stockCode: "7203",
+                    per: 12.5,
+                    pbr: 1.1
+                )
+            )
+        )
+
+        #expect(response.stockCode == "7203")
+        #expect(response.currentPrice == nil)
+        #expect(response.volume == nil)
+        #expect(response.per == 12.5)
+        #expect(response.pbr == 1.1)
+    }
+
+    @Test func jQuantsStockDataMapperAllowsAllMetricsMissingButSnapshotIsNil() throws {
+        let response = try #require(
+            JQuantsStockDataMapper().map(
+                dailyQuote: JQuantsDailyQuoteResponse(
+                    stockCode: "7203",
+                    close: nil,
+                    volume: nil,
+                    capturedAt: nil
+                ),
+                financialMetrics: JQuantsFinancialMetricsResponse(
+                    stockCode: "7203",
+                    per: nil,
+                    pbr: nil
+                )
+            )
+        )
+
+        #expect(response.stockSnapshot(capturedAt: Date(timeIntervalSince1970: 100)) == nil)
+    }
+
     @Test func jQuantsStockDataMapperReturnsNilWithoutStockCode() {
         let response = JQuantsStockDataMapper().map(
             dailyQuote: nil,
@@ -1506,6 +1603,85 @@ struct StockTradingSupportAppTests {
 
         #expect(provider.snapshot(for: "7203") == nil)
         #expect(provider.lastError == .rateLimited)
+    }
+
+    @Test func jQuantsStockDataClientReturnsRateLimitedForHTTP429() {
+        let client = JQuantsStockDataClient(
+            apiKey: "placeholder-key-for-tests",
+            httpClient: StubHTTPClient(result: .success(HTTPResponse(statusCode: 429)))
+        )
+
+        #expect(client.latestSnapshotResponse(for: "7203") == .failure(.rateLimited))
+    }
+
+    @Test func jQuantsStockDataClientReturnsFetchFailedForTransportError() {
+        let client = JQuantsStockDataClient(
+            apiKey: "placeholder-key-for-tests",
+            httpClient: StubHTTPClient(result: .failure(.transport("offline")))
+        )
+
+        let result = client.latestSnapshotResponse(for: "7203")
+        if case .failure(.fetchFailed(let message)) = result {
+            #expect(message == "offline")
+        } else {
+            Issue.record("通信失敗はfetchFailedとして返す必要があります")
+        }
+    }
+
+    @Test func jQuantsStockDataClientMapsSuccessfulHTTPResponse() throws {
+        let responseData = try #require("""
+        {
+            "dailyQuote": {
+                "stockCode": "7203",
+                "close": 3210,
+                "volume": 2000000
+            },
+            "financialMetrics": {
+                "stockCode": "7203",
+                "per": 12.5,
+                "pbr": 1.1
+            }
+        }
+        """.data(using: .utf8))
+        let client = JQuantsStockDataClient(
+            apiKey: "placeholder-key-for-tests",
+            httpClient: StubHTTPClient(
+                result: .success(
+                    HTTPResponse(
+                        statusCode: 200,
+                        data: responseData
+                    )
+                )
+            )
+        )
+
+        let response = try #require(try client.latestSnapshotResponse(for: "7203").get())
+
+        #expect(response.stockCode == "7203")
+        #expect(response.currentPrice == 3210)
+        #expect(response.per == 12.5)
+        #expect(response.pbr == 1.1)
+        #expect(response.volume == 2_000_000)
+    }
+
+    @Test func externalApiStockDataProviderConvertsSuccessfulClientResultToSnapshot() {
+        let provider = ExternalApiStockDataProvider(
+            client: SuccessfulExternalStockDataClient(
+                response: ExternalStockSnapshotResponse(
+                    stockCode: "7203",
+                    currentPrice: 3210,
+                    sourceName: "J-Quants"
+                )
+            ),
+            currentDate: { Date(timeIntervalSince1970: 100) }
+        )
+
+        let snapshot = provider.snapshot(for: "7203")
+
+        #expect(snapshot?.stockCode == "7203")
+        #expect(snapshot?.currentPrice == 3210)
+        #expect(snapshot?.sourceName == "J-Quants")
+        #expect(provider.lastError == nil)
     }
 
     @Test func compositeStockDataProviderPrefersManualInputOverExternalAndMock() {
@@ -2176,6 +2352,22 @@ private struct FailingExternalStockDataClient: ExternalStockDataClient {
 
     func latestSnapshotResponse(for stockCode: String) -> Result<ExternalStockSnapshotResponse?, ExternalStockDataProviderError> {
         .failure(error)
+    }
+}
+
+private struct SuccessfulExternalStockDataClient: ExternalStockDataClient {
+    let response: ExternalStockSnapshotResponse?
+
+    func latestSnapshotResponse(for stockCode: String) -> Result<ExternalStockSnapshotResponse?, ExternalStockDataProviderError> {
+        .success(response)
+    }
+}
+
+private struct StubHTTPClient: HTTPClient {
+    let result: Result<HTTPResponse, HTTPClientError>
+
+    func send(_ request: URLRequest) -> Result<HTTPResponse, HTTPClientError> {
+        result
     }
 }
 

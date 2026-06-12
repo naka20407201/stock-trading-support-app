@@ -359,6 +359,16 @@ Step 12.5 の実装:
 - 開発・テスト用では `ManualInputStockDataProvider`、`StubExternalStockDataProvider`、`MockStockDataProvider` の3段階フォールバックを維持する
 - 無料APIを有効にした将来版では `ManualInputStockDataProvider`、`ExternalApiStockDataProvider`、`MockStockDataProvider` の順にする
 
+Step 12.6 の実装:
+
+- `ApiKeyProviding`、`EnvironmentApiKeyProvider`、`JQuantsApiConfiguration` を追加し、APIキー取得元を差し替えられるようにする
+- `HTTPClient`、`HTTPResponse`、`HTTPClientError`、`URLSessionHTTPClient` を追加し、実通信前にHTTP境界をテスト可能にする
+- `URLSessionHTTPClient` は現時点ではネットワーク通信を行わず、実通信は後続対応にする
+- `JQuantsRequestBuilder` はJ-Quants向けリクエスト生成の入口とし、正式エンドポイントは公式仕様確認後に確定する
+- `JQuantsStockDataClient` はAPIキー未設定、HTTP失敗、レート制限、レスポンス変換を扱う
+- `JQuantsStockDataMapper` はdailyQuoteとfinancialMetricsの銘柄コード不一致を検出し、銘柄コードをtrimする
+- APIキーや秘密情報はリポジトリに含めず、`.gitignore` でローカル秘密情報ファイルを除外する
+
 将来版:
 
 - ExternalApiStockDataProvider

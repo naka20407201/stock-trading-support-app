@@ -15,6 +15,13 @@ build/
 *.dSYM.zip
 *.ipa
 
+# Local secrets and environment files
+*.local.xcconfig
+Secrets.xcconfig
+LocalSecrets.xcconfig
+.env
+.env.local
+
 # Swift Package Manager
 .build/
 Package.resolved

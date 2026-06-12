@@ -483,6 +483,46 @@ xcodebuild -project StockTradingSupportApp/StockTradingSupportApp.xcodeproj -sch
 - 外部取得値のキャッシュRecord設計を決める
 - レート制限時の再試行や待機方針を決める
 
+## Step 12.6: J-Quants公式仕様確認前提の実通信入口設計（完了）
+
+目的:
+
+- J-Quantsを無料API第一候補として扱い、実通信前の公式仕様確認チェックリストを整備する
+- APIキーや認証情報をリポジトリに含めずに扱う設計を固める
+- URLSession通信層へ進む前に、テスト可能なHTTPClient境界を準備する
+- J-Quantsレスポンス相当データのMapperを安全にする
+
+完了内容:
+
+- `docs/external-data-provider.md` にJ-Quants導入前チェックリストを追加
+- 無料プラン、対象エンドポイント、認証方式、トークン更新、レート制限、取得可能期間、直近データ遅延、daily quotes項目、PER/PBR算出可否、出来高、利用規約、再配布制約を公式確認項目として整理
+- APIキーをソースコードやGitHubに含めない方針を再確認
+- `.gitignore` に `*.local.xcconfig`、`.env`、`.env.local`、`Secrets.xcconfig`、`LocalSecrets.xcconfig` を追加
+- `ApiKeyProviding`、`EnvironmentApiKeyProvider`、`JQuantsApiConfiguration` を追加し、Xcode Scheme環境変数などからAPIキーを取得できる入口を用意
+- `HTTPClient`、`HTTPResponse`、`HTTPClientError`、`URLSessionHTTPClient`、`JQuantsEndpoint`、`JQuantsRequestBuilder` を追加
+- `JQuantsStockDataClient` を、APIキー未設定、HTTP通信失敗、レート制限相当、レスポンス変換をテストできる構造へ整理
+- `URLSessionHTTPClient` は現時点ではネットワーク通信を行わず、実通信は後続対応にした
+- `JQuantsStockDataMapper` に銘柄コードtrim、dailyQuote / financialMetrics の銘柄コード不一致検出を追加
+- dailyQuoteのみ、financialMetricsのみでも、少なくとも1つ指標値があればDTO化できることをテストで確認
+- 全指標 nil の場合は有効な `StockSnapshot` として扱わないことを維持
+- `ExternalApiStockDataProvider` がClient成功結果を `StockSnapshot` へ変換できることをテストで確認
+
+注意:
+
+- このStepでは実際のURLSession通信、APIキー保存、認証トークン保存、キャッシュ保存、バックグラウンド更新は実装しない
+- 有料API契約、有料API前提の実装、課金前提の機能分岐は行わない
+- 外部APIを追加しても、AlertRuleEvaluator はJ-Quants系DTOやClientに依存せず、`StockSnapshot` だけを入力にする
+- currentPriceとして終値を使う場合は、リアルタイム価格ではないことをUIや履歴で中立的に扱う
+
+残課題:
+
+- J-Quantsの正式エンドポイント、認証フロー、トークン更新方式を公式仕様で確認する
+- `JQuantsRequestBuilder` のplaceholderパスを正式エンドポイントへ置き換える
+- `URLSessionHTTPClient` の実通信実装
+- J-Quants実レスポンス構造に合わせたDTOとParserの実装
+- APIキー未設定、レート制限、通信失敗、キャッシュ利用中のUI表示設計
+- 外部取得値キャッシュの保存先と有効期限の確定
+
 ## Step 13: Web/PC版への拡張方針
 
 目的:

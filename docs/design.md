@@ -164,7 +164,7 @@ Step 11 時点では、App entry が `SwiftDataManualStockSnapshotInputRepositor
 
 Step 11 時点では、`ManualInputStockDataProvider`、`MockStockDataProvider`、`FallbackStockDataProvider` を使い、currentPrice、PER、PBR、出来高を StockSnapshot の対象指標として扱えます。条件追加画面では `currentPrice`、`per`、`pbr`、`volume` を選択できます。未入力または欠損している指標は推測せず、判定不能として表示します。
 
-Step 12 時点では、外部APIレスポンス相当の `ExternalStockSnapshotResponse` を追加し、外部データを `StockSnapshot` へ変換できるようにします。Step 12.5 では、疑似レスポンス用の `StubExternalStockDataProvider` と将来実通信用の `ExternalApiStockDataProvider` を分離します。現時点ではネットワーク通信を行わず、APIキー保存、認証、URLSession通信、レート制限処理、キャッシュ、バックグラウンド更新は後続対応です。将来の優先順位は、ユーザーの手入力評価データ、外部API取得値、開発用固定モック値の順です。APIキー未設定、取得失敗、レート制限、欠損値はDataProvider層で扱い、AlertRuleEvaluator には StockSnapshot だけを渡します。
+Step 12 時点では、外部APIレスポンス相当の `ExternalStockSnapshotResponse` を追加し、外部データを `StockSnapshot` へ変換できるようにします。Step 12.5 では、疑似レスポンス用の `StubExternalStockDataProvider` と将来実通信用の `ExternalApiStockDataProvider` を分離します。Step 12.6 では、J-Quantsを無料API第一候補として扱う前提で、`ApiKeyProviding`、`JQuantsApiConfiguration`、`HTTPClient`、`JQuantsRequestBuilder`、`JQuantsStockDataClient` の入口を追加します。現時点では本番起動時に外部API Provider を挟まず、URLSession実通信、APIキー保存、認証トークン保存、キャッシュ、バックグラウンド更新は後続対応です。将来の優先順位は、ユーザーの手入力評価データ、外部API取得値、開発用固定モック値の順です。APIキー未設定、取得失敗、レート制限、欠損値はDataProvider層で扱い、AlertRuleEvaluator には StockSnapshot だけを渡します。
 
 Step 12.5 の通常起動Provider構成:
 

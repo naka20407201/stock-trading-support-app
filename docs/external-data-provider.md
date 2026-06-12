@@ -14,6 +14,30 @@
 - 第一候補は J-Quants とする。ただし、採用確定前に無料プラン、利用規約、再配布制約、レート制限、取得可能期間を公式情報で再確認する。
 - Alpha Vantage と Finnhub は代替候補として残すが、日本株コード体系、無料枠、取得できる指標、商用利用条件を確認してから採用判断する。
 
+## Step 12.6: J-Quants導入前チェックリスト
+
+J-Quantsを無料API第一候補として扱いますが、実通信の実装前に以下を公式情報で再確認します。不確かな項目は、実装やUI仕様に反映する前に必ず「要確認」として扱います。
+
+| 確認項目 | 確認内容 | 現時点の扱い |
+| --- | --- | --- |
+| 無料プランの有無 | 無料で利用できるプランが現在も提供されているか | 要確認 |
+| 無料プランで利用できるエンドポイント | daily quotes、listed info、statements / financials 相当が無料枠で使えるか | 要確認 |
+| APIキーまたは認証方式 | APIキー、メール/パスワード、リフレッシュトークン、IDトークンなどの方式 | 要確認 |
+| トークン更新方式 | 認証トークンの有効期限、更新タイミング、保存可否 | 要確認 |
+| レート制限 | 1分、1日、月間などの呼び出し上限 | 要確認 |
+| 取得可能期間 | 無料枠で取得できる過去データの期間 | 要確認 |
+| 直近データの遅延 | 当日または直近日足の反映タイミング | 要確認 |
+| daily quotes の項目 | 終値、四本値、出来高、調整後値など | 要確認 |
+| PER / PBR 相当 | statements / financials で直接取得できるか、または算出に必要な値を取得できるか | 要確認 |
+| currentPriceとして終値を使う注意 | リアルタイム価格ではなく、取得可能な終値または直近値として表示する必要がある | 初期方針として明記 |
+| 出来高の取得可否 | 日足出来高を取得できるか | 要確認 |
+| 利用規約 | 個人開発アプリでの利用条件 | 要確認 |
+| 再配布制約 | APIから得たデータをアプリ内表示、保存、共有してよい範囲 | 要確認 |
+| アプリ内表示範囲 | ユーザーが確認するための表示、条件一致履歴への保存、キャッシュ保存の可否 | 要確認 |
+| 有料API検討条件 | 無料APIで取得範囲、頻度、安定性、規約面が不足する場合のみ検討 | 後続検討 |
+
+このStepでは、公式仕様を前提にしたチェックリストとClient境界だけを準備します。実際のAPIキー、認証情報、URLSession通信の有効化はまだ行いません。
+
 ## 共通方針
 
 - 外部APIのレスポンスは、画面や `AlertRuleEvaluator` に直接渡さない。
@@ -98,8 +122,11 @@
 | `StubExternalStockDataProvider` | 疑似レスポンスを返すテスト・開発用Provider |
 | `ExternalApiStockDataProvider` | 将来の実通信Clientを使ってSnapshotを返すProvider。現時点ではClientの結果を処理するだけ |
 | `ExternalStockDataClient` | 将来のURLSession通信を担う予定のプロトコル |
-| `JQuantsStockDataClient` | J-Quants用Clientの設計スタブ。実通信はまだしない |
+| `JQuantsStockDataClient` | J-Quants用Clientの入口。APIキー未設定、HTTP失敗、レート制限、レスポンス変換を扱う。現時点では本番起動に組み込まない |
 | `JQuantsStockDataMapper` | J-Quantsレスポンス相当のDTOを `ExternalStockSnapshotResponse` へ変換するMapper |
+| `HTTPClient` | URLSession通信へ進む前の通信境界 |
+| `URLSessionHTTPClient` | 将来URLSession通信を担う予定の型。現時点ではネットワーク通信を有効化しない |
+| `JQuantsRequestBuilder` | J-Quants向けリクエスト生成の入口。正式エンドポイントは公式仕様確認後に確定する |
 
 通常起動時の構成:
 
@@ -128,6 +155,35 @@
 - 将来的には Keychain 保存も検討する。
 - ユーザー配布アプリにする場合、APIキーをアプリに埋め込むのか、バックエンド経由にするのかを別途設計する。
 - APIキー未設定時は、外部APIを使わず手入力値または固定モック値で評価できるようにする。
+
+Step 12.6 の準備:
+
+- `ApiKeyProviding` でAPIキー取得元を抽象化する。
+- `EnvironmentApiKeyProvider` でXcode Scheme環境変数などから取得できる入口を用意する。
+- `JQuantsApiConfiguration` は `JQUANTS_API_KEY` を既定の環境変数名として扱う。ただし、実際の値はリポジトリに含めない。
+- `*.local.xcconfig`、`.env`、`.env.local`、`Secrets.xcconfig`、`LocalSecrets.xcconfig` は `.gitignore` で除外する。
+- 将来、ユーザー配布アプリにする場合は、Keychain保存またはバックエンド経由の管理を別途検討する。
+
+候補ごとの位置づけ:
+
+- Xcode Scheme 環境変数: 開発中の最小構成候補。
+- ローカル設定ファイル / `.xcconfig`: 個人開発中の設定候補。GitHubには含めない。
+- Keychain: ユーザーごとの設定保存が必要になった場合の候補。
+- バックエンド経由: APIキー秘匿やレート制御が重要になった場合の候補。
+
+## URLSession通信層の入口
+
+Step 12.6 では、実通信を有効化せずに以下の境界だけを準備します。
+
+- `HTTPClient`: リクエスト送信を抽象化するProtocol。
+- `HTTPResponse`: ステータスコード、レスポンス本文、ヘッダーを保持する。
+- `HTTPClientError`: 未実装、通信失敗、レスポンス不正を表す。
+- `URLSessionHTTPClient`: 将来のURLSession実装予定地。現時点ではネットワーク通信を行わず、未実装エラーを返す。
+- テストでは `StubHTTPClient` を使い、実ネットワークに依存しない。
+
+`JQuantsStockDataClient` は `HTTPClient` を注入できるため、実通信前でもAPIキー未設定、HTTP 429相当、通信失敗、レスポンス変換をテストできます。
+
+J-Quantsの正式なURL、エンドポイント、認証ヘッダー、トークン更新方式は、公式仕様確認後に `JQuantsRequestBuilder` と `JQuantsStockDataClient` へ反映します。
 
 ## エラーとUI表示方針
 

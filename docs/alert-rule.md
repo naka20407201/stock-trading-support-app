@@ -135,7 +135,7 @@ DataProvider 相当の候補:
 
 Step 11 では、`ManualInputStockDataProvider` と `FallbackStockDataProvider` を追加します。評価時は有効な手入力評価データを優先し、未登録または全項目空欄の場合に `MockStockDataProvider` の固定モック値へフォールバックします。外部API連携そのものは実装しません。
 
-Step 12 では、`ExternalStockSnapshotResponse` と外部API疑似データから `StockSnapshot` を生成するProviderを追加します。Step 12.5 では、疑似レスポンス用の `StubExternalStockDataProvider` と将来実通信用の `ExternalApiStockDataProvider` を分離します。外部APIを追加する場合も、APIレスポンスを直接 AlertRuleEvaluator に渡さず、DataProvider 相当の境界で StockSnapshot へ変換してから評価します。APIキー未設定、取得失敗、レート制限、欠損値はDataProvider層で扱い、評価結果は必要に応じて「評価できません」として表示します。
+Step 12 では、`ExternalStockSnapshotResponse` と外部API疑似データから `StockSnapshot` を生成するProviderを追加します。Step 12.5 では、疑似レスポンス用の `StubExternalStockDataProvider` と将来実通信用の `ExternalApiStockDataProvider` を分離します。Step 12.6 では、J-Quants向けのAPIキー設定入口、HTTPClient境界、RequestBuilder、Client、Mapperを追加します。外部APIを追加する場合も、APIレスポンスを直接 AlertRuleEvaluator に渡さず、DataProvider 相当の境界で StockSnapshot へ変換してから評価します。APIキー未設定、取得失敗、レート制限、欠損値はDataProvider層で扱い、評価結果は必要に応じて「評価できません」として表示します。AlertRuleEvaluator はJ-Quants系DTO、Client、通信層に依存しません。
 
 将来、無料APIを有効にした場合の優先順位:
 
